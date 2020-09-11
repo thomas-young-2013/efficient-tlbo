@@ -77,12 +77,9 @@ class SMBO(BasePipeline):
         # Initialize the basic component in BO.
         self.config_space.seed(rng.randint(MAXINT))
         self.objective_function = objective_function
-        types, bounds = get_types(config_space)
 
         self.model = build_model(model_str=model_type,
                                  config_space=config_space,
-                                 types=types,
-                                 bounds=bounds,
                                  seed=self.seed,
                                  rng=self.rng)
         self.acquisition_function = EI(self.model)
