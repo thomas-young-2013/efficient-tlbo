@@ -49,7 +49,7 @@ class SMBO(BasePipeline):
     def __init__(self, objective_function, config_space,
                  time_limit_per_trial=180,
                  max_runs=200,
-                 model_str='gp_mcmc',
+                 model_type='gp_mcmc',
                  logging_dir='./logs',
                  initial_configurations=None,
                  initial_runs=3,
@@ -79,7 +79,7 @@ class SMBO(BasePipeline):
         self.objective_function = objective_function
         types, bounds = get_types(config_space)
 
-        self.model = build_model(model_str=model_str,
+        self.model = build_model(model_str=model_type,
                                  config_space=config_space,
                                  types=types,
                                  bounds=bounds,
