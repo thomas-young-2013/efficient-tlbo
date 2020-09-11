@@ -2,7 +2,6 @@ import os
 import sys
 import abc
 import traceback
-import logging
 import numpy as np
 from tlbo.utils.history_container import HistoryContainer
 from tlbo.acquisition_function.acquisition import EI
@@ -11,6 +10,7 @@ from tlbo.optimizer.ei_optimization import InterleavedLocalAndRandomSearch, Rand
 from tlbo.optimizer.random_configuration_chooser import ChooserProb
 from tlbo.config_space.util import convert_configurations_to_array
 from tlbo.utils.constants import MAXINT, SUCCESS, FAILDED, TIMEOUT
+from tlbo.model.util_funcs import get_rng, get_types
 from tlbo.utils.limit import time_limit, TimeoutException
 from tlbo.utils.logging_utils import setup_logger, get_logger
 
@@ -40,7 +40,7 @@ class BasePipeline(object, metaclass=abc.ABCMeta):
         return self.history_container.get_incumbents()
 
     def _get_logger(self, name):
-        logger_name = 'lite-bo-%s' % name
+        logger_name = 'tlbo-%s' % name
         setup_logger(os.path.join(self.output_dir, '%s.log' % str(logger_name)))
         return get_logger(logger_name)
 
@@ -58,7 +58,8 @@ class SMBO(BasePipeline):
         self.logger = super()._get_logger(self.__class__.__name__)
         if rng is None:
             run_id, rng = get_rng()
-
+        self.rng = rng
+        self.seed = rng.randint(MAXINT)
         self.init_num = initial_runs
         self.max_iterations = max_runs
         self.iteration_id = 0
@@ -76,13 +77,15 @@ class SMBO(BasePipeline):
         self.config_space.seed(rng.randint(MAXINT))
         self.objective_function = objective_function
         types, bounds = get_types(config_space)
-        # TODO: what is the feature array.
-        self.model = RandomForestWithInstances(types=types, bounds=bounds, seed=rng.randint(MAXINT))
+
+        self.model = RandomForestWithInstances(configspace=self.config_space,
+                                               types=types, bounds=bounds,
+                                               seed=self.seed)
         self.acquisition_function = EI(self.model)
         self.optimizer = InterleavedLocalAndRandomSearch(
             acquisition_function=self.acquisition_function,
             config_space=self.config_space,
-            rng=np.random.RandomState(seed=rng.randint(MAXINT)),
+            rng=np.random.RandomState(seed=self.seed),
             max_steps=self.sls_max_steps,
             n_steps_plateau_walk=self.sls_n_steps_plateau_walk,
             n_sls_iterations=self.n_sls_iterations
