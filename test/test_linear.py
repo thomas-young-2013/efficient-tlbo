@@ -180,5 +180,5 @@ for dataset in dataset_list:
     eval = partial(eval_func, x=_x, y=_y)
     bo = BO(eval, cs, max_runs=run_count, rng=np.random.RandomState(1))
     bo.run()
-    with open('logs/%s-%d.pkl' % (dataset, run_count), 'wb')as f:
+    with open('logs/%s-linear-%d.pkl' % (dataset, run_count), 'wb')as f:
         pickle.dump(bo.get_history().data, f)
