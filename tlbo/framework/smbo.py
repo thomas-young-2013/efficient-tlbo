@@ -8,7 +8,7 @@ from tlbo.acquisition_function.acquisition import EI
 from tlbo.utils.history_container import HistoryContainer
 from tlbo.utils.limit import time_limit, TimeoutException
 from tlbo.utils.logging_utils import setup_logger, get_logger
-from tlbo.model.rf_with_instances import RandomForestWithInstances
+from tlbo.model.model_builder import build_model
 from tlbo.optimizer.ei_optimization import InterleavedLocalAndRandomSearch, RandomSearch
 from tlbo.optimizer.random_configuration_chooser import ChooserProb
 from tlbo.config_space.util import convert_configurations_to_array
@@ -49,6 +49,7 @@ class SMBO(BasePipeline):
     def __init__(self, objective_function, config_space,
                  time_limit_per_trial=180,
                  max_runs=200,
+                 model_str='gp_mcmc',
                  logging_dir='./logs',
                  initial_configurations=None,
                  initial_runs=3,
@@ -78,9 +79,12 @@ class SMBO(BasePipeline):
         self.objective_function = objective_function
         types, bounds = get_types(config_space)
 
-        self.model = RandomForestWithInstances(configspace=self.config_space,
-                                               types=types, bounds=bounds,
-                                               seed=self.seed)
+        self.model = build_model(model_str=model_str,
+                                 config_space=config_space,
+                                 types=types,
+                                 bounds=bounds,
+                                 seed=self.seed,
+                                 rng=self.rng)
         self.acquisition_function = EI(self.model)
         self.optimizer = InterleavedLocalAndRandomSearch(
             acquisition_function=self.acquisition_function,
