@@ -1,6 +1,6 @@
 import numpy as np
 import george
-from tlbo.model.gp import GaussianProcess
+from tlbo.model.gp_mcmc import GaussianProcess
 from tlbo.priors.default_priors import DefaultPrior
 
 

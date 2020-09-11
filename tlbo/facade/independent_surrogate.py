@@ -1,6 +1,6 @@
 import numpy as np
 from tlbo.facade.base_surrogate import BaseSurrogate
-from tlbo.model.random_forest import RandomForest
+from tlbo.model.rf_with_instances import RandomForestWithInstances
 
 
 class IndependentSurrogate(BaseSurrogate):
@@ -19,7 +19,7 @@ class IndependentSurrogate(BaseSurrogate):
 
             self.current_model = self.create_single_gp(lower, upper)
         else:
-            self.current_model = RandomForest()
+            self.current_model = RandomForestWithInstances()
         self.current_model.train(X, y)
 
     def predict(self, X: np.array):

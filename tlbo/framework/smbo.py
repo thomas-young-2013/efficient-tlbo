@@ -4,19 +4,18 @@ import abc
 import traceback
 import logging
 import numpy as np
-from litebo.utils.history_container import HistoryContainer
-from litebo.acquisition_function.acquisition import EI
-from litebo.model.rf_with_instances import RandomForestWithInstances
-from litebo.optimizer.ei_optimization import InterleavedLocalAndRandomSearch, RandomSearch
-from litebo.optimizer.random_configuration_chooser import ChooserProb
-from tlbo.utils.util_funcs import get_types, get_rng
+from tlbo.utils.history_container import HistoryContainer
+from tlbo.acquisition_function.acquisition import EI
+from tlbo.model.rf_with_instances import RandomForestWithInstances
+from tlbo.optimizer.ei_optimization import InterleavedLocalAndRandomSearch, RandomSearch
+from tlbo.optimizer.random_configuration_chooser import ChooserProb
 from tlbo.config_space.util import convert_configurations_to_array
 from tlbo.utils.constants import MAXINT, SUCCESS, FAILDED, TIMEOUT
 from tlbo.utils.limit import time_limit, TimeoutException
 from tlbo.utils.logging_utils import setup_logger, get_logger
 
 
-class BaseFacade(object, metaclass=abc.ABCMeta):
+class BasePipeline(object, metaclass=abc.ABCMeta):
     def __init__(self, config_space, task_id, output_dir):
         self.output_dir = output_dir
         if not os.path.exists(self.output_dir):
@@ -46,7 +45,7 @@ class BaseFacade(object, metaclass=abc.ABCMeta):
         return get_logger(logger_name)
 
 
-class BayesianOptimization(BaseFacade):
+class SMBO(BasePipeline):
     def __init__(self, objective_function, config_space,
                  time_limit_per_trial=180,
                  max_runs=200,
