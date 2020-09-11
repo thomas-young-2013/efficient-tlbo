@@ -1,0 +1,49 @@
+# pickle
+*.pkl
+
+# image
+*.png
+
+# numpy data file
+*.npy
+
+logs/
+conf/
+data/
+# tools/plots/
+
+# setup.py
+build
+dist
+*.egg*
+
+# Python
+*.pyc
+*.pyo
+
+# IDEs
+.idea
+
+# SMAC output
+runhistory.json
+target_algo_runs.json
+
+# Other
+.tox
+.coverage
+.pypirc
+.ipynb_checkpoints/
+*.ipynb
+*~
+.html/
+
+#eclipse files
+.pydevproject 
+.project
+
+# cifar-10 data
+cifar-10-batches-py/
+
+*.pdf
+
+*.DS_Store
