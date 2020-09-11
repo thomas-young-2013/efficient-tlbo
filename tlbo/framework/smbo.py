@@ -3,16 +3,16 @@ import sys
 import abc
 import traceback
 import numpy as np
-from tlbo.utils.history_container import HistoryContainer
+from tlbo.model.util_funcs import get_rng, get_types
 from tlbo.acquisition_function.acquisition import EI
+from tlbo.utils.history_container import HistoryContainer
+from tlbo.utils.limit import time_limit, TimeoutException
+from tlbo.utils.logging_utils import setup_logger, get_logger
 from tlbo.model.rf_with_instances import RandomForestWithInstances
 from tlbo.optimizer.ei_optimization import InterleavedLocalAndRandomSearch, RandomSearch
 from tlbo.optimizer.random_configuration_chooser import ChooserProb
 from tlbo.config_space.util import convert_configurations_to_array
 from tlbo.utils.constants import MAXINT, SUCCESS, FAILDED, TIMEOUT
-from tlbo.model.util_funcs import get_rng, get_types
-from tlbo.utils.limit import time_limit, TimeoutException
-from tlbo.utils.logging_utils import setup_logger, get_logger
 
 
 class BasePipeline(object, metaclass=abc.ABCMeta):
