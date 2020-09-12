@@ -1,29 +1,30 @@
 import numpy as np
-from .gp_mcmc import GaussianProcessMCMC
-from .gp import GaussianProcess
-from .rf_with_instances import RandomForestWithInstances
-from .gp_kernels import ConstantKernel, Matern, HammingKernel, WhiteKernel
-from .gp_base_prior import HorseshoePrior, LognormalPrior
-from .util_funcs import get_rng, get_types
+from tlbo.utils.constants import MAXINT
+from tlbo.model.gp_mcmc import GaussianProcessMCMC
+from tlbo.model.util_funcs import get_rng, get_types
+from tlbo.model.rf_with_instances import RandomForestWithInstances
+from tlbo.model.gp_base_prior import HorseshoePrior, LognormalPrior
+from tlbo.model.gp_kernels import ConstantKernel, Matern, HammingKernel, WhiteKernel
 
 
-def build_model(model_str, config_space, types, bounds, seed, rng):
-    if model_str == 'rf':
+def build_model(model_type, config_space, rng):
+    types, bounds = get_types(config_space)
+    if model_type == 'rf':
         model = RandomForestWithInstances(configspace=config_space,
                                           types=types, bounds=bounds,
-                                          seed=seed)
-    elif model_str == 'gp_mcmc':
+                                          seed=rng.randint(MAXINT))
+    elif model_type == 'gp_mcmc':
         model = create_gp_model(config_space=config_space,
                                 types=types,
                                 bounds=bounds,
                                 rng=rng)
     else:
-        raise ValueError("Invalid model str %s!" % model_str)
+        raise ValueError("Invalid model str %s!" % model_type)
 
     return model
 
 
-def create_gp_model(config_space, types, bounds, rng=None):
+def create_gp_model(config_space, types, bounds, rng):
     """
         Construct the Gaussian process model that is capable of dealing with categorical hyperparameters.
     """
@@ -72,6 +73,21 @@ def create_gp_model(config_space, types, bounds, rng=None):
     else:
         raise ValueError()
 
-    seed = rng.randint(0, 2 ** 20)
-    model = GaussianProcessMCMC(config_space, types, bounds, seed, kernel, normalize_y=True)
+    # seed = rng.randint(0, 2 ** 20)
+    # model = GaussianProcessMCMC(config_space, types, bounds, seed, kernel, normalize_y=True)
+    n_mcmc_walkers = 3 * len(kernel.theta)
+    if n_mcmc_walkers % 2 == 1:
+        n_mcmc_walkers += 1
+
+    model = GaussianProcessMCMC(
+        config_space,
+        types=types,
+        bounds=bounds,
+        kernel=kernel,
+        n_mcmc_walkers=n_mcmc_walkers,
+        chain_length=250,
+        burnin_steps=250,
+        normalize_y=True,
+        seed=rng.randint(low=0, high=10000),
+    )
     return model
