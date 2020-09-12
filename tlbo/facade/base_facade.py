@@ -1,4 +1,5 @@
 import abc
+import time
 import typing
 import numpy as np
 from typing import List
@@ -17,11 +18,13 @@ class BaseFacade(object):
                  rng: np.random.RandomState,
                  target_hp_configs: List = None,
                  history_dataset_features: List = None,
+                 num_src_hpo_trial: int=50,
                  surrogate_type='gp_mcmc'):
         self.config_space = config_space
         self.rng = rng
         # The number of source problems.
         self.K = len(source_hpo_data)
+        self.num_src_hpo_trial = num_src_hpo_trial
         self.source_hpo_data = source_hpo_data
         self.target_hp_configs = target_hp_configs
         self.source_surrogates = None
@@ -44,8 +47,11 @@ class BaseFacade(object):
         pass
 
     def build_source_surrogates(self):
+        print('start to train base surrogates.')
+        start_time = time.time()
         self.source_surrogates = list()
         for hpo_evaluation_data in self.source_hpo_data:
+            print('.', end='')
             model = build_model(self.surrogate_type, self.config_space, self.rng)
             _X, _y = list(), list()
             for _config, _config_perf in hpo_evaluation_data.items():
@@ -53,6 +59,8 @@ class BaseFacade(object):
                 _y.append(_config_perf)
             X = convert_configurations_to_array(_X)
             y = np.array(_y, dtype=np.float64)
+            X = X[:self.num_src_hpo_trial]
+            y = y[:self.num_src_hpo_trial]
 
             # Prevent the same value in y.
             if (y == y[0]).all():
@@ -60,6 +68,8 @@ class BaseFacade(object):
             y, _, _ = zero_mean_unit_var_normalization(y)
             model.train(X, y)
             self.source_surrogates.append(model)
+        print()
+        print('Building base surrogates took %.3fs.' % (time.time() - start_time))
 
     def build_single_surrogate(self, X: np.ndarray, y: np.array):
         model = build_model(self.surrogate_type, self.config_space, self.rng)

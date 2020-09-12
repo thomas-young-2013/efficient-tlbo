@@ -3,8 +3,10 @@ from tlbo.facade.base_facade import BaseFacade
 
 
 class RGPE(BaseFacade):
-    def __init__(self, config_space, source_hpo_data, target_hp_configs, rng):
-        super().__init__(config_space, source_hpo_data, rng, target_hp_configs)
+    def __init__(self, config_space, source_hpo_data, target_hp_configs, rng,
+                 surrogate_type='gp', num_src_hpo_trial=50):
+        super().__init__(config_space, source_hpo_data, rng, target_hp_configs,
+                         surrogate_type=surrogate_type, num_src_hpo_trial=num_src_hpo_trial)
         
         self.build_source_surrogates()
         # Weights for base surrogates and the target surrogate.
@@ -34,7 +36,7 @@ class RGPE(BaseFacade):
 
         if not skip_target_surrogate:
             # Conduct leave-one-out evaluation.
-            self.build_source_surrogates(X, y)
+            self.build_single_surrogate(X, y)
             if instance_num < k_fold_num:
                 for i in range(instance_num):
                     row_indexs = list(range(instance_num))
@@ -103,7 +105,7 @@ class RGPE(BaseFacade):
 
         # Update the weights.
         for id in range(self.K + 1):
-            self.weights[id] = argmin_list[id] / self.num_sample
+            self.w[id] = argmin_list[id] / self.num_sample
 
         # Set weight dilution flag.
         ranking_loss_caches = np.array(ranking_loss_caches)

@@ -51,6 +51,18 @@ class SMBO_OFFLINE(BasePipeline):
                                            config_space, rng)
         self.random_configuration_chooser = ChooserProb(prob=0.25, rng=rng)
 
+        # Set the parameter in metric.
+        ys = list(self.target_hpo_measurements.values())
+        self.y_max, self.y_min = np.max(ys), np.min(ys)
+
+    def get_adtm(self):
+        y_inc = np.min(self.perfs)
+        assert self.y_max != self.y_min
+        return (y_inc - self.y_min) / (self.y_max - self.y_min)
+
+    def get_inc_y(self):
+        return np.min(self.perfs)
+
     def run(self):
         while self.iteration_id < self.max_iterations:
             self.iterate()
