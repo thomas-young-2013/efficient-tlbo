@@ -185,7 +185,7 @@ for dataset in dataset_list:
     node = load_data(dataset, '../soln-ml/', True, task_type=0)
     _x, _y = node.data[0], node.data[1]
     eval = partial(eval_func, x=_x, y=_y)
-    bo = BO(eval, cs, max_runs=run_count, rng=np.random.RandomState(1))
+    bo = BO(eval, cs, max_runs=run_count, time_limit_per_trial=600, rng=np.random.RandomState(1))
     bo.run()
     with open('logs/%s-random_forest-%d.pkl' % (dataset, run_count), 'wb')as f:
         pickle.dump(bo.get_history().data, f)
