@@ -1,6 +1,7 @@
 import numpy as np
 from tlbo.utils.constants import MAXINT
 from tlbo.model.gp_mcmc import GaussianProcessMCMC
+from tlbo.model.gp import GaussianProcess
 from tlbo.model.util_funcs import get_rng, get_types
 from tlbo.model.rf_with_instances import RandomForestWithInstances
 from tlbo.model.gp_base_prior import HorseshoePrior, LognormalPrior
@@ -13,8 +14,9 @@ def build_model(model_type, config_space, rng):
         model = RandomForestWithInstances(configspace=config_space,
                                           types=types, bounds=bounds,
                                           seed=rng.randint(MAXINT))
-    elif model_type == 'gp_mcmc':
-        model = create_gp_model(config_space=config_space,
+    elif 'gp' in model_type:
+        model = create_gp_model(model_type=model_type,
+                                config_space=config_space,
                                 types=types,
                                 bounds=bounds,
                                 rng=rng)
@@ -24,7 +26,7 @@ def build_model(model_type, config_space, rng):
     return model
 
 
-def create_gp_model(config_space, types, bounds, rng):
+def create_gp_model(model_type, config_space, types, bounds, rng):
     """
         Construct the Gaussian process model that is capable of dealing with categorical hyperparameters.
     """
@@ -74,20 +76,30 @@ def create_gp_model(config_space, types, bounds, rng):
         raise ValueError()
 
     # seed = rng.randint(0, 2 ** 20)
-    # model = GaussianProcessMCMC(config_space, types, bounds, seed, kernel, normalize_y=True)
-    n_mcmc_walkers = 3 * len(kernel.theta)
-    if n_mcmc_walkers % 2 == 1:
-        n_mcmc_walkers += 1
-
-    model = GaussianProcessMCMC(
-        config_space,
-        types=types,
-        bounds=bounds,
-        kernel=kernel,
-        n_mcmc_walkers=n_mcmc_walkers,
-        chain_length=250,
-        burnin_steps=250,
-        normalize_y=True,
-        seed=rng.randint(low=0, high=10000),
-    )
+    if model_type == 'gp_mcmc':
+        n_mcmc_walkers = 3 * len(kernel.theta)
+        if n_mcmc_walkers % 2 == 1:
+            n_mcmc_walkers += 1
+        model = GaussianProcessMCMC(
+            config_space,
+            types=types,
+            bounds=bounds,
+            kernel=kernel,
+            n_mcmc_walkers=n_mcmc_walkers,
+            chain_length=250,
+            burnin_steps=250,
+            normalize_y=True,
+            seed=rng.randint(low=0, high=10000),
+        )
+    elif model_type == 'gp':
+        model = GaussianProcess(
+            config_space,
+            types=types,
+            bounds=bounds,
+            kernel=kernel,
+            normalize_y=True,
+            seed=rng.randint(low=0, high=10000),
+        )
+    else:
+        raise ValueError("Invalid model str %s!" % model_type)
     return model
