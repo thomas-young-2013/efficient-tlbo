@@ -1,17 +1,17 @@
 import numpy as np
-from tlbo.facade.base_surrogate import BaseSurrogate
+from tlbo.facade.base_facade import BaseFacade
 
 
-class RandomSearch(BaseSurrogate):
-    def __init__(self, train_metadata, test_metadata):
-        BaseSurrogate.__init__(self, train_metadata, test_metadata)
+class RandomSearch(BaseFacade):
+    def __init__(self, config_space, source_hpo_data, target_hp_configs, rng,
+                 surrogate_type='gp', num_src_hpo_trial=50, fusion_method='idp'):
+        super().__init__(config_space, source_hpo_data, rng, target_hp_configs,
+                         surrogate_type=surrogate_type, num_src_hpo_trial=num_src_hpo_trial)
 
     def train(self, X: np.ndarray, y: np.array):
-        self.update_incumbent(X, y)
+        pass
 
     def predict(self, X: np.array):
         # Imitate the random search.
         n = X.shape[0]
-        mu = np.random.rand(n)
-        var = np.array([1e-4]*n)
-        return mu, var
+        return np.random.rand(n).reshape(-1, 1), np.array([1e-5]*n).reshape(-1, 1)
