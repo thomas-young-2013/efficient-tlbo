@@ -203,11 +203,13 @@ if __name__ == "__main__":
         print(e)
 
     legend = ax.legend(handles=handles, loc=1, ncol=2)
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(5))
     ax.set_xlabel('\\textbf{Number of Trials}', fontsize=18)
-    if plot_type=='adtm':
+    if plot_type == 'adtm':
         ax.set_ylabel('\\textbf{ADTM}', fontsize=18)
-    elif plot_type=='ranking':
+    elif plot_type == 'ranking':
         ax.set_ylabel('\\textbf{Average Rank}', fontsize=18)
+        ax.set_ylim(1, len(methods))
 
     # # TODO: For each benchmark, the following two settings should be customized.
     # if benchmark_id == 'fcnet':
