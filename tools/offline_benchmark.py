@@ -54,6 +54,8 @@ if __name__ == "__main__":
 
     for mth in baselines:
         for id in range(len(hpo_ids)):
+            print('=' * 20)
+            print('Start to evaluate %d-th target problem.' % (id + 1))
             start_time = time.time()
             # Generate the source and target hpo data.
             target_hpo_data = hpo_data[id]
