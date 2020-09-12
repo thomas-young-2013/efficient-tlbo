@@ -3,8 +3,10 @@ from tlbo.facade.base_facade import BaseFacade
 
 
 class RGPE(BaseFacade):
-    def __init__(self, config_space, source_hpo_data, target_hp_configs, rng, surrogate_type='gp'):
-        super().__init__(config_space, source_hpo_data, rng, target_hp_configs, surrogate_type=surrogate_type)
+    def __init__(self, config_space, source_hpo_data, target_hp_configs, rng,
+                 surrogate_type='gp', num_src_hpo_trial=50):
+        super().__init__(config_space, source_hpo_data, rng, target_hp_configs,
+                         surrogate_type=surrogate_type, num_src_hpo_trial=num_src_hpo_trial)
         
         self.build_source_surrogates()
         # Weights for base surrogates and the target surrogate.
