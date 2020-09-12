@@ -15,7 +15,7 @@ from litebo.facade.bo_facade import BayesianOptimization as BO
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--datasets', type=str)
-parser.add_argument('--n', type=int, default=500)
+parser.add_argument('--n', type=int, default=1000)
 
 args = parser.parse_args()
 dataset_str = args.datasets
