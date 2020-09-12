@@ -207,9 +207,11 @@ if __name__ == "__main__":
     ax.set_xlabel('\\textbf{Number of Trials}', fontsize=18)
     if plot_type == 'adtm':
         ax.set_ylabel('\\textbf{ADTM}', fontsize=18)
+        plt.subplots_adjust(top=0.97, right=0.968, left=0.11, bottom=0.13)
     elif plot_type == 'ranking':
         ax.set_ylabel('\\textbf{Average Rank}', fontsize=18)
         ax.set_ylim(1, len(methods))
+        plt.subplots_adjust(top=0.97, right=0.968, left=0.11, bottom=0.13)
 
     # # TODO: For each benchmark, the following two settings should be customized.
     # if benchmark_id == 'fcnet':
