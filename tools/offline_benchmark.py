@@ -10,10 +10,12 @@ from tlbo.framework.smbo_offline import SMBO_OFFLINE
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--algo_id', type=str, default='random_forest')
+parser.add_argument('--surrogate_type', type=str, default='gp')
 parser.add_argument('--trial_num', type=int, default=100)
 parser.add_argument('--num_source_data', type=int, default=100)
 args = parser.parse_args()
 algo_id = args.algo_id
+surrogate_type = args.surrogate_type
 n_src_data = args.num_source_data
 data_dir = 'data/hpo_data/'
 
@@ -36,6 +38,7 @@ def load_hpo_history():
 if __name__ == "__main__":
     hpo_ids, hpo_data = load_hpo_history()
     from tlbo.facade.notl import NoTL
+    from tlbo.facade.rgpe import RGPE
     from tlbo.config_space.space_instance import get_configspace_instance
     config_space = get_configspace_instance(algo_id=algo_id)
     for id in range(1):
@@ -46,7 +49,7 @@ if __name__ == "__main__":
             if _id != id:
                 source_hpo_data.append(data)
         rng = np.random.RandomState(1)
-        surrogate = NoTL(config_space, source_hpo_data, target_hpo_data, rng)
+        surrogate = RGPE(config_space, source_hpo_data, target_hpo_data, rng, surrogate_type=surrogate_type)
         smbo = SMBO_OFFLINE(target_hpo_data, config_space, surrogate, max_runs=100)
         for _ in range(10):
             config, _, perf, _ = smbo.iterate()
