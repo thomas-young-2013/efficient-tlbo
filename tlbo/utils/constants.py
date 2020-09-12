@@ -9,5 +9,3 @@ TIMEOUT = 2
 
 # The very small number is used to avoid numerical instabilities or dividing by zero
 VERY_SMALL_NUMBER = 1e-10
-
-N_TREES = 10

@@ -28,7 +28,7 @@ from tlbo.facade.two_stage_surrogate import TwoStageSurrogate
 from tlbo.facade.ranking_weighted_ensemble_surrogate import RankingWeightedEnsembleSurrogate
 from tlbo.facade.robust_ensemble_surrogate import RobustEnsembleSurrogate
 from tlbo.facade.gp_stacking_surrogate import GPStackingSurrogate
-from tlbo.facade.independent_surrogate import IndependentSurrogate
+from tlbo.facade.notl import IndependentSurrogate
 from tlbo.facade.scot_surrogate import SCoTSurrogate
 from tlbo.facade.mklgp_surrogate import MKLGPSurrogate
 from tlbo.facade.robust_transfer_learning_surrogate import RobustTLSurrogate

@@ -4,7 +4,7 @@ from tlbo.facade.base_facade import BaseFacade
 
 class RGPE(BaseFacade):
     def __init__(self, config_space, source_hpo_data, target_hp_configs, rng):
-        super().__init__(config_space, source_hpo_data, target_hp_configs, rng)
+        super().__init__(config_space, source_hpo_data, rng, target_hp_configs)
         
         self.build_source_surrogates()
         # Weights for base surrogates and the target surrogate.
