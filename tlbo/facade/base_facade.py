@@ -114,32 +114,7 @@ class BaseFacade(object):
             var[var < self.var_threshold] = self.var_threshold
             var[np.isnan(var)] = self.var_threshold
             return mean, var
-        else:
-            n_instances = len(self.instance_features)
-
-        mean = np.zeros(X.shape[0])
-        var = np.zeros(X.shape[0])
-        for i, x in enumerate(X):
-            X_ = np.hstack(
-                (np.tile(x, (n_instances, 1)), self.instance_features))
-            means, vars = self.predict(X_)
-            assert vars is not None  # please mypy
-            # VAR[1/n (X_1 + ... + X_n)] =
-            # 1/n^2 * ( VAR(X_1) + ... + VAR(X_n))
-            # for independent X_1 ... X_n
-            var_x = np.sum(vars) / (len(vars) ** 2)
-            if var_x < self.var_threshold:
-                var_x = self.var_threshold
-
-            var[i] = var_x
-            mean[i] = np.mean(means)
-
-        if len(mean.shape) == 1:
-            mean = mean.reshape((-1, 1))
-        if len(var.shape) == 1:
-            var = var.reshape((-1, 1))
-
-        return mean, var
+        raise ValueError('Unexpected case happened.')
 
     def combine_predictions(self, X: np.array, combination_method: str = 'idp_lc'):
         n, m = X.shape[0], len(self.w)

@@ -7,6 +7,7 @@ from tlbo.config_space import Configuration, ConfigurationSpace
 from tlbo.optimizer.ei_offline_optimizer import OfflineSearch
 from tlbo.optimizer.random_configuration_chooser import ChooserProb
 from tlbo.config_space.util import convert_configurations_to_array
+from tlbo.utils.normalization import zero_mean_unit_var_normalization
 from tlbo.utils.constants import MAXINT, SUCCESS, FAILDED, TIMEOUT
 from tlbo.framework.smbo import BasePipeline
 from tlbo.facade.base_facade import BaseFacade
@@ -34,7 +35,6 @@ class SMBO_OFFLINE(BasePipeline):
         self.iteration_id = 0
         self.default_obj_value = MAXINT
 
-        np.random.seed(self.seed)
         self.target_hpo_measurements = target_hpo_data
         self.configuration_list = list(self.target_hpo_measurements.keys())
         self.configurations = list()
@@ -42,14 +42,15 @@ class SMBO_OFFLINE(BasePipeline):
         self.perfs = list()
 
         # Initialize the basic component in BO.
-        self.config_space.seed(rng.randint(MAXINT))
+        self.config_space.seed(self.seed)
+        np.random.seed(self.seed)
 
         self.model = surrogate_model
         self.acquisition_function = EI(self.model)
         self.acq_optimizer = OfflineSearch(self.configuration_list,
                                            self.acquisition_function,
-                                           config_space, rng)
-        self.random_configuration_chooser = ChooserProb(prob=0.25, rng=rng)
+                                           config_space, self.rng)
+        self.random_configuration_chooser = ChooserProb(prob=0.25, rng=self.rng)
 
         # Set the parameter in metric.
         ys = list(self.target_hpo_measurements.values())
@@ -144,7 +145,8 @@ class SMBO_OFFLINE(BasePipeline):
             print('training GPs took %.3f' % (time.time() - start_time))
 
             incumbent_value = self.history_container.get_incumbents()[0][1]
-
+            # y_, _, _ = zero_mean_unit_var_normalization(Y)
+            # incumbent_value = np.min(y_)
             self.acquisition_function.update(model=self.model, eta=incumbent_value,
                                              num_data=len(self.history_container.data))
             start_time = time.time()
