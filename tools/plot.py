@@ -29,16 +29,18 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--benchmark', type=str,
                     default='random_forest')
 parser.add_argument('--methods', type=str, default='notl,rgpe,es,rs')
+parser.add_argument('--data_dir', type=str, default='./')
 parser.add_argument('--transfer_trials', type=int, default=50)
-parser.add_argument('--run_trials', type=int, default=20)
+parser.add_argument('--trial_num', type=int, default=20)
 parser.add_argument('--plot_type', type=str, choices=['ranking', 'adtm'], default='adtm')
 args = parser.parse_args()
 
 benchmark_id = args.benchmark
 transfer_trials = args.transfer_trials
-run_trials = args.run_trials
+run_trials = args.trial_num
 plot_type = args.plot_type
 methods = args.methods.split(',')
+data_dir = args.data_dir
 
 
 def fetch_color_marker(m_list):
@@ -165,7 +167,7 @@ if __name__ == "__main__":
     try:
         for idx, method in enumerate(methods):
             filename = "%s_%s_%d_%d.pkl" % (method, benchmark_id, transfer_trials, run_trials)
-            path = os.path.join("/Users/shenyu/PycharmProjects/efficient-tlbo/data/exp_results", filename)
+            path = os.path.join("%sdata/exp_results" % data_dir, filename)
             with open(path, 'rb')as f:
                 array = pkl.load(f)
             label_name = r'\textbf{%s}' % (method.upper().replace('_', '-'))

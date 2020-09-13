@@ -37,6 +37,7 @@ class BaseFacade(object):
         self.types, self.bounds = get_types(config_space)
         self.instance_features = None
         self.var_threshold = VERY_SMALL_NUMBER
+        self.w = None
 
     @abc.abstractmethod
     def train(self, X: np.ndarray, y: np.ndarray):
@@ -140,3 +141,40 @@ class BaseFacade(object):
 
         return mean, var
 
+    def combine_predictions(self, X: np.array, combination_method: str = 'idp_lc'):
+        n, m = X.shape[0], len(self.w)
+        mu, var = np.zeros((n, 1)), np.zeros((n, 1))
+        w = self.w
+        var_buf = np.zeros((n, m))
+        mu_buf = np.zeros((n, m))
+
+        target_var = None
+        # Predictions from source surrogates.
+        for i in range(0, self.K + 1):
+            if i == self.K:
+                if self.target_surrogate is None:
+                    _mu, _var = np.zeros((n, 1)), np.zeros((n, 1))
+                else:
+                    _mu, _var = self.target_surrogate.predict(X)
+                target_var = _var
+            else:
+                _mu, _var = self.source_surrogates[i].predict(X)
+            mu += w[i] * _mu
+            var += w[i] * w[i] * _var
+
+            # compute the gaussian experts.
+            var_buf[:, i] = 1./_var*w[i]
+            mu_buf[:, i] = 1./_var*_mu*w[i]
+
+        if combination_method == 'no_var':
+            return mu, target_var
+        elif combination_method == 'idp_lc':
+            return mu, var
+        elif combination_method == 'gpoe':
+            tmp = np.sum(var_buf, axis=1)
+            tmp[tmp == 0.] = 1e-5
+            var = 1. / tmp
+            mu = np.sum(mu_buf, axis=1) * var
+            return mu, var
+        else:
+            raise ValueError('Invalid combination method %s.' % combination_method)

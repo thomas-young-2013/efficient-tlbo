@@ -79,7 +79,7 @@ class ES(BaseFacade):
         w_source = w_source/np.sum(w_source)
         self.w[:-1] = w_source
 
-        if len(y) > self.min_num_y:
+        if len(y) >= self.min_num_y:
             w1, w2 = self.calculate_target_weight(X, y)
         else:
             w1, w2 = 1., 0.
@@ -90,15 +90,14 @@ class ES(BaseFacade):
         # print('current weights', self.w)
 
         # Build the target surrogate.
-        if len(y) >= self.min_num_y - 1:
-            self.target_surrogate = self.build_single_surrogate(X, y)
+        self.target_surrogate = self.build_single_surrogate(X, y)
 
     def calculate_target_weight(self, X, y):
         source_prediction = np.mean(self.surrogate_ensemble, axis=0)
         if self.target_surrogate is None:
-            print('=' * 20)
-            print('#Iteration=', len(y), 'target surrrogate is none!')
-            print('=' * 20)
+            # print('=' * 20)
+            # print('#Iteration=', len(y), 'target surrrogate is none!')
+            # print('=' * 20)
             return 1., 0.
         target_prediction, _ = self.target_surrogate.predict(X)
         base_predictions = [source_prediction.flatten(), target_prediction.flatten()]
