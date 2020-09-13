@@ -1,6 +1,7 @@
 import os
 import argparse
 import pickle as pkl
+from collections import Counter
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
@@ -117,6 +118,7 @@ def create_plot_points(data, start_time, end_time, point_num=500):
 def get_mean_ranking(adtm_dict, idx, num_ranking):
     ranking_dict = {method: [] for method in adtm_dict.keys()}
     for i in range(num_ranking):
+        _rank_dict = {}
         value_dict = {}
         for method in adtm_dict.keys():
             value_dict[method] = adtm_dict[method][i][idx][0]
@@ -127,15 +129,19 @@ def get_mean_ranking(adtm_dict, idx, num_ranking):
         for _idx, item in enumerate(sorted_item):
             if cur_rank == 0:
                 cur_rank += 1
-                ranking_dict[item[0]].append(cur_rank)
+                _rank_dict[item[0]] = cur_rank
             else:
                 if item[1] == sorted_item[_idx - 1][1]:
-                    ranking_dict[item[0]].append(cur_rank)
+                    _rank_dict[item[0]] = cur_rank
                     rank_gap += 1
                 else:
                     cur_rank += rank_gap
                     rank_gap = 1
-                    ranking_dict[item[0]].append(cur_rank)
+                    _rank_dict[item[0]] = cur_rank
+        counter = Counter(_rank_dict.values())
+        for method in adtm_dict.keys():
+            ranking_dict[method].append(
+                (_rank_dict[method] * 2 + counter[_rank_dict[method]] - 1) / 2)
     ranking_dict = {method: np.mean(ranking_dict[method]) for method in ranking_dict.keys()}
     # print(ranking_dict)
     return ranking_dict
