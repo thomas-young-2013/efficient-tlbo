@@ -122,21 +122,22 @@ class ES(BaseFacade):
         return _w
 
     def predict(self, X: np.array):
-        if self.target_surrogate is None:
-            mu, var = np.zeros((X.shape[0], 1)), np.zeros((X.shape[0], 1))
-        else:
-            mu, var = self.target_surrogate.predict(X)
-
-        # Target surrogate predictions with weight.
-        mu *= self.w[-1]
-        var *= (self.w[-1] * self.w[-1])
-
-        # Base surrogate predictions with corresponding weights.
-        for i in range(0, self.K):
-            mu_t, var_t = self.source_surrogates[i].predict(X)
-            mu += self.w[i] * mu_t
-            var += self.w[i] * self.w[i] * var_t
-        return mu, var
+        # if self.target_surrogate is None:
+        #     mu, var = np.zeros((X.shape[0], 1)), np.zeros((X.shape[0], 1))
+        # else:
+        #     mu, var = self.target_surrogate.predict(X)
+        #
+        # # Target surrogate predictions with weight.
+        # mu *= self.w[-1]
+        # var *= (self.w[-1] * self.w[-1])
+        #
+        # # Base surrogate predictions with corresponding weights.
+        # for i in range(0, self.K):
+        #     mu_t, var_t = self.source_surrogates[i].predict(X)
+        #     mu += self.w[i] * mu_t
+        #     var += self.w[i] * self.w[i] * var_t
+        # return mu, var
+        return self.combine_predictions(X, combination_method='no_var')
 
     def get_weights(self):
         return self.w

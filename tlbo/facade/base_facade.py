@@ -163,8 +163,9 @@ class BaseFacade(object):
             var += w[i] * w[i] * _var
 
             # compute the gaussian experts.
-            var_buf[:, i] = 1./_var*w[i]
-            mu_buf[:, i] = 1./_var*_mu*w[i]
+            if combination_method == 'gpoe':
+                var_buf[:, i] = (1./_var*w[i]).flatten()
+                mu_buf[:, i] = (1./_var*_mu*w[i]).flatten()
 
         if combination_method == 'no_var':
             return mu, target_var
