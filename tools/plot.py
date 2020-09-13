@@ -164,6 +164,7 @@ if __name__ == "__main__":
     #     marker_dict[item] = markers[i]
     color_dict, marker_dict = fetch_color_marker(methods)
     adtm_dict = {}
+    num_ranking = np.inf
     try:
         for idx, method in enumerate(methods):
             filename = "%s_%s_%d_%d.pkl" % (method, benchmark_id, transfer_trials, run_trials)
@@ -186,7 +187,8 @@ if __name__ == "__main__":
                 handles.append(line)
             elif plot_type == 'ranking':
                 adtm_dict[method] = array[0]
-                num_ranking = len(array[0])
+                num_ranking = len(array[0]) if len(array[0]) < num_ranking else num_ranking
+
         if plot_type == 'ranking':
             ranking_dict = {method: [] for method in adtm_dict.keys()}
             for idx in range(len(x)):
