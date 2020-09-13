@@ -164,51 +164,45 @@ if __name__ == "__main__":
     #     marker_dict[item] = markers[i]
     color_dict, marker_dict = fetch_color_marker(methods)
     adtm_dict = {}
-    try:
-        for idx, method in enumerate(methods):
-            filename = "%s_%s_%d_%d.pkl" % (method, benchmark_id, transfer_trials, run_trials)
-            path = os.path.join("%sdata/exp_results" % data_dir, filename)
-            with open(path, 'rb')as f:
-                array = pkl.load(f)
-            label_name = r'\textbf{%s}' % (method.upper().replace('_', '-'))
-            x = list(range(len(array[1])))
-            if plot_type == 'adtm':
-                y = array[1][:, 1]
-                print(x, y)
-                ax.plot(x, y, lw=lw,
-                        label=label_name, color=color_dict[method],
-                        marker=marker_dict[method], markersize=ms, markevery=me
-                        )
-                # ax.fill_between(x, y_mean + y_var, y_mean - y_var, alpha=0.1, facecolors=color_dict[method])
+    for idx, method in enumerate(methods):
+        filename = "%s_%s_%d_%d.pkl" % (method, benchmark_id, transfer_trials, run_trials)
+        path = os.path.join("%sdata/exp_results" % data_dir, filename)
+        with open(path, 'rb')as f:
+            array = pkl.load(f)
+        label_name = r'\textbf{%s}' % (method.upper().replace('_', '-'))
+        x = list(range(len(array[1])))
+        if plot_type == 'adtm':
+            y = array[1][:, 1]
+            print(x, y)
+            ax.plot(x, y, lw=lw,
+                    label=label_name, color=color_dict[method],
+                    marker=marker_dict[method], markersize=ms, markevery=me
+                    )
+            # ax.fill_between(x, y_mean + y_var, y_mean - y_var, alpha=0.1, facecolors=color_dict[method])
 
-                line = mlines.Line2D([], [], color=color_dict[method], marker=marker_dict[method],
-                                     markersize=ms, label=label_name)
-                handles.append(line)
-            elif plot_type == 'ranking':
-                adtm_dict[method] = array[0]
-                num_ranking = len(array[0])
-        if plot_type == 'ranking':
-            ranking_dict = {method: [] for method in adtm_dict.keys()}
-            for idx in range(len(x)):
-                mean_ranking_dict = get_mean_ranking(adtm_dict, idx, num_ranking)
-                for method in adtm_dict.keys():
-                    ranking_dict[method].append(mean_ranking_dict[method])
+            line = mlines.Line2D([], [], color=color_dict[method], marker=marker_dict[method],
+                                 markersize=ms, label=label_name)
+            handles.append(line)
+        elif plot_type == 'ranking':
+            adtm_dict[method] = array[0]
+            num_ranking = len(array[0])
+    if plot_type == 'ranking':
+        ranking_dict = {method: [] for method in adtm_dict.keys()}
+        for idx in range(len(x)):
+            mean_ranking_dict = get_mean_ranking(adtm_dict, idx, num_ranking)
             for method in adtm_dict.keys():
-                label_name = r'\textbf{%s}' % (method.upper().replace('_', '-'))
-                ax.plot(x, ranking_dict[method], lw=lw,
-                        label=label_name, color=color_dict[method],
-                        marker=marker_dict[method], markersize=ms, markevery=me
-                        )
-                # ax.fill_between(x, y_mean + y_var, y_mean - y_var, alpha=0.1, facecolors=color_dict[method])
+                ranking_dict[method].append(mean_ranking_dict[method])
+        for method in adtm_dict.keys():
+            label_name = r'\textbf{%s}' % (method.upper().replace('_', '-'))
+            ax.plot(x, ranking_dict[method], lw=lw,
+                    label=label_name, color=color_dict[method],
+                    marker=marker_dict[method], markersize=ms, markevery=me
+                    )
+            # ax.fill_between(x, y_mean + y_var, y_mean - y_var, alpha=0.1, facecolors=color_dict[method])
 
-                line = mlines.Line2D([], [], color=color_dict[method], marker=marker_dict[method],
-                                     markersize=ms, label=label_name)
-                handles.append(line)
-
-
-
-    except Exception as e:
-        print(e)
+            line = mlines.Line2D([], [], color=color_dict[method], marker=marker_dict[method],
+                                 markersize=ms, label=label_name)
+            handles.append(line)
 
     legend = ax.legend(handles=handles, loc=1, ncol=2)
     ax.xaxis.set_major_locator(ticker.MultipleLocator(5))
