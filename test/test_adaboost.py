@@ -95,13 +95,14 @@ class AdaboostClassifier:
 
     def fit(self, X, Y, sample_weight=None):
         import sklearn.tree
+        from sklearn.ensemble import AdaBoostClassifier
 
         self.n_estimators = int(self.n_estimators)
         self.learning_rate = float(self.learning_rate)
         self.max_depth = int(self.max_depth)
         base_estimator = sklearn.tree.DecisionTreeClassifier(max_depth=self.max_depth)
 
-        estimator = sklearn.ensemble.AdaBoostClassifier(
+        estimator = AdaBoostClassifier(
             base_estimator=base_estimator,
             n_estimators=self.n_estimators,
             learning_rate=self.learning_rate,
