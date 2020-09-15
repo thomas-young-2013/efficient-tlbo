@@ -26,8 +26,8 @@ plt.rcParams["legend.fontsize"] = 16
 # plt.switch_backend('agg')
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--benchmark', type=str,
-                    default='random_forest')
+parser.add_argument('--surrogate_type', type=str, default='gp')
+parser.add_argument('--algo_id', type=str, default='random_forest')
 parser.add_argument('--methods', type=str, default='notl,rgpe,es,rs')
 parser.add_argument('--data_dir', type=str, default='./')
 parser.add_argument('--transfer_trials', type=int, default=50)
@@ -35,7 +35,8 @@ parser.add_argument('--trial_num', type=int, default=20)
 parser.add_argument('--plot_type', type=str, choices=['ranking', 'adtm'], default='adtm')
 args = parser.parse_args()
 
-benchmark_id = args.benchmark
+benchmark_id = args.algo_id
+surrogate_type = args.surrogate_type
 transfer_trials = args.transfer_trials
 run_trials = args.trial_num
 plot_type = args.plot_type
@@ -167,7 +168,10 @@ if __name__ == "__main__":
     num_ranking = np.inf
     try:
         for idx, method in enumerate(methods):
-            filename = "%s_%s_%d_%d.pkl" % (method, benchmark_id, transfer_trials, run_trials)
+            if surrogate_type == 'rf':
+                filename = '%s_%s_%d_%d.pkl' % (method, benchmark_id, transfer_trials, run_trials)
+            else:
+                filename = '%s_%s_%d_%d_%s.pkl' % (method, benchmark_id, transfer_trials, run_trials, surrogate_type)
             path = os.path.join("%sdata/exp_results" % data_dir, filename)
             with open(path, 'rb')as f:
                 array = pkl.load(f)

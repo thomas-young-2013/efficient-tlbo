@@ -34,7 +34,7 @@ pattern = '(.*)-(%s)-(\d+).pkl' % algo_str
 
 def load_hpo_history():
     source_hpo_ids, source_hpo_data = list(), list()
-    for _file in os.listdir(data_dir):
+    for _file in sorted(os.listdir(data_dir)):
         if _file.endswith('.pkl') and _file.find(algo_id) != -1:
             result = re.search(pattern, _file, re.I)
             dataset_id, algo_name, total_trial_num = result.group(1), result.group(2), result.group(3)
@@ -60,7 +60,8 @@ if __name__ == "__main__":
     from tlbo.facade.ensemble_selection import ES
     from tlbo.facade.random_surrogate import RandomSearch
     from tlbo.config_space.space_instance import get_configspace_instance
-    config_space = get_configspace_instance(algo_id=algo_id)
+    algo_name = 'liblinear_svc' if algo_id == 'linear' else algo_id
+    config_space = get_configspace_instance(algo_id=algo_name)
 
     for mth in baselines:
         exp_results = list()
@@ -88,7 +89,8 @@ if __name__ == "__main__":
             surrogate = surrogate_class(config_space, source_hpo_data, target_hpo_data, rng,
                                         surrogate_type=surrogate_type,
                                         num_src_hpo_trial=n_src_data)
-            smbo = SMBO_OFFLINE(target_hpo_data, config_space, surrogate, max_runs=trial_num)
+            smbo = SMBO_OFFLINE(target_hpo_data, config_space, surrogate,
+                                rng=rng, max_runs=trial_num)
             result = list()
             for _ in range(trial_num):
                 config, _, perf, _ = smbo.iterate()
@@ -98,7 +100,10 @@ if __name__ == "__main__":
                 # print('%.3f - %.3f' % (adtm, y_inc))
                 result.append([adtm, y_inc, time_taken])
             exp_results.append(result)
-        mth_file = '%s_%s_%d_%d.pkl' % (mth, algo_id, n_src_data, trial_num)
+        if surrogate_type == 'rf':
+            mth_file = '%s_%s_%d_%d.pkl' % (mth, algo_id, n_src_data, trial_num)
+        else:
+            mth_file = '%s_%s_%d_%d_%s.pkl' % (mth, algo_id, n_src_data, trial_num, surrogate_type)
         with open(exp_dir + mth_file, 'wb') as f:
             data = [np.array(exp_results), np.mean(exp_results, axis=0)]
             pickle.dump(data, f)

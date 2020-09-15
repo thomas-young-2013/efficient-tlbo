@@ -30,7 +30,12 @@ class SMBO_OFFLINE(BasePipeline):
             run_id, rng = get_rng()
         self.rng = rng
         self.seed = rng.randint(MAXINT)
-        self.init_num = initial_runs
+        self.initial_configurations = initial_configurations
+        if initial_configurations is None:
+            self.init_num = initial_runs
+        else:
+            self.init_num = len(initial_configurations)
+
         self.max_iterations = max_runs
         self.iteration_id = 0
         self.default_obj_value = MAXINT
@@ -44,13 +49,14 @@ class SMBO_OFFLINE(BasePipeline):
         # Initialize the basic component in BO.
         self.config_space.seed(self.seed)
         np.random.seed(self.seed)
-
         self.model = surrogate_model
         self.acquisition_function = EI(self.model)
         self.acq_optimizer = OfflineSearch(self.configuration_list,
                                            self.acquisition_function,
-                                           config_space, self.rng)
-        self.random_configuration_chooser = ChooserProb(prob=0.25, rng=self.rng)
+                                           config_space,
+                                           rng=np.random.RandomState(self.seed))
+        self.random_configuration_chooser = ChooserProb(prob=0.25,
+                                                        rng=np.random.RandomState(self.seed))
 
         # Set the parameter in metric.
         ys = list(self.target_hpo_measurements.values())
@@ -116,7 +122,7 @@ class SMBO_OFFLINE(BasePipeline):
         sample_cnt = 0
         while len(configs) < config_num:
             sample_cnt += 1
-            _idx = np.random.randint(len(self.configuration_list))
+            _idx = self.rng.randint(len(self.configuration_list))
             config = self.configuration_list[_idx]
             if config not in (self.configurations + self.failed_configurations + configs):
                 configs.append(config)
@@ -138,7 +144,12 @@ class SMBO_OFFLINE(BasePipeline):
                 return self.sample_random_config()[0]
 
         if self.random_configuration_chooser.check(self.iteration_id):
-            return self.sample_random_config()[0]
+            # print('=' * 20)
+            # print(self.iteration_id, 'random')
+            config = self.sample_random_config()[0]
+            # print(config)
+            # print('=' * 20)
+            return config
         else:
             start_time = time.time()
             self.model.train(X, Y)

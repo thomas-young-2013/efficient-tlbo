@@ -33,10 +33,11 @@ class RGPE(BaseFacade):
         cached_mu_list, cached_var_list = list(), list()
         instance_num = len(y)
         skip_target_surrogate = False if instance_num >= k_fold_num else True
+        # Ignore the target surrogate.
+        # skip_target_surrogate = True
 
         if not skip_target_surrogate:
             # Conduct leave-one-out evaluation.
-            self.build_single_surrogate(X, y)
             if instance_num < k_fold_num:
                 for i in range(instance_num):
                     row_indexs = list(range(instance_num))
@@ -113,6 +114,11 @@ class RGPE(BaseFacade):
         for id in range(self.K):
             median = sorted(ranking_loss_caches[:, id])[int(self.num_sample * 0.5)]
             self.ignored_flag[id] = median > threshold
+
+        # self.w[:-1] = self.w[:-1]/np.sum(self.w[:-1])
+        # self.w[-1] = 0.
+        print('=' * 20)
+        print(self.w)
 
     def predict(self, X: np.array):
         mu, var = self.target_surrogate.predict(X)

@@ -116,10 +116,16 @@ class BaseFacade(object):
             return mean, var
         raise ValueError('Unexpected case happened.')
 
-    def combine_predictions(self, X: np.array, combination_method: str = 'idp_lc'):
+    def combine_predictions(self, X: np.array,
+                            combination_method: str = 'idp_lc',
+                            weight: np.array = None):
         n, m = X.shape[0], len(self.w)
         mu, var = np.zeros((n, 1)), np.zeros((n, 1))
-        w = self.w
+        if weight is None:
+            w = self.w
+        else:
+            w = weight
+
         var_buf = np.zeros((n, m))
         mu_buf = np.zeros((n, m))
 
@@ -127,10 +133,7 @@ class BaseFacade(object):
         # Predictions from source surrogates.
         for i in range(0, self.K + 1):
             if i == self.K:
-                if self.target_surrogate is None:
-                    _mu, _var = np.zeros((n, 1)), np.zeros((n, 1))
-                else:
-                    _mu, _var = self.target_surrogate.predict(X)
+                _mu, _var = self.target_surrogate.predict(X)
                 target_var = _var
             else:
                 _mu, _var = self.source_surrogates[i].predict(X)
@@ -139,8 +142,10 @@ class BaseFacade(object):
 
             # compute the gaussian experts.
             if combination_method == 'gpoe':
-                var_buf[:, i] = (1./_var*w[i]).flatten()
-                mu_buf[:, i] = (1./_var*_mu*w[i]).flatten()
+                _mu, _var = _mu.flatten(), _var.flatten()
+                if (_var != 0).all():
+                    var_buf[:, i] = (1./_var*w[i])
+                    mu_buf[:, i] = (1./_var*_mu*w[i])
 
         if combination_method == 'no_var':
             return mu, target_var
@@ -151,6 +156,6 @@ class BaseFacade(object):
             tmp[tmp == 0.] = 1e-5
             var = 1. / tmp
             mu = np.sum(mu_buf, axis=1) * var
-            return mu, var
+            return mu.reshape(-1, 1), var.reshape(-1, 1)
         else:
             raise ValueError('Invalid combination method %s.' % combination_method)
