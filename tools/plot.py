@@ -207,8 +207,6 @@ if __name__ == "__main__":
                                      markersize=ms, label=label_name)
                 handles.append(line)
 
-
-
     except Exception as e:
         print(e)
 

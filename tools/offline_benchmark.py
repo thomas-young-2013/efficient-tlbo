@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import time
 import pickle
@@ -14,22 +15,32 @@ parser.add_argument('--methods', type=str, default='rgpe')
 parser.add_argument('--surrogate_type', type=str, default='gp')
 parser.add_argument('--trial_num', type=int, default=50)
 parser.add_argument('--num_source_data', type=int, default=50)
+parser.add_argument('--num_target_data', type=int, default=1000)
 args = parser.parse_args()
 algo_id = args.algo_id
 surrogate_type = args.surrogate_type
 n_src_data = args.num_source_data
+n_target_data = args.num_target_data
 trial_num = args.trial_num
 baselines = args.methods.split(',')
 data_dir = 'data/hpo_data/'
 exp_dir = 'data/exp_results/'
 
 
+algorithms = ['lightgbm', 'random_forest', 'linear']
+algo_str = '|'.join(algorithms)
+pattern = '(.*)-(%s)-(\d+).pkl' % algo_str
+
+
 def load_hpo_history():
-    source_hpo_ids = list()
-    source_hpo_data = list()
+    source_hpo_ids, source_hpo_data = list(), list()
     for _file in os.listdir(data_dir):
         if _file.endswith('.pkl') and _file.find(algo_id) != -1:
-            dataset_id = _file.split('-')[0]
+            result = re.search(pattern, _file, re.I)
+            dataset_id, algo_name, total_trial_num = result.group(1), result.group(2), result.group(3)
+            # print(dataset_id, algo_name, total_trial_num)
+            if int(total_trial_num) != n_target_data:
+                continue
             with open(data_dir + _file, 'rb') as f:
                 data = pickle.load(f)
                 perfs = np.array(list(data.values()))
@@ -50,9 +61,9 @@ if __name__ == "__main__":
     from tlbo.facade.random_surrogate import RandomSearch
     from tlbo.config_space.space_instance import get_configspace_instance
     config_space = get_configspace_instance(algo_id=algo_id)
-    exp_results = list()
 
     for mth in baselines:
+        exp_results = list()
         for id in range(len(hpo_ids)):
             print('=' * 20)
             print('Start to evaluate %d-th target problem.' % (id + 1))
