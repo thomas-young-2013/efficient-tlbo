@@ -3,9 +3,9 @@ from tlbo.facade.base_facade import BaseFacade
 
 
 class ES(BaseFacade):
-    def __init__(self, config_space, source_hpo_data, target_hp_configs, rng,
+    def __init__(self, config_space, source_hpo_data, target_hp_configs, seed,
                  surrogate_type='gp', num_src_hpo_trial=50, fusion_method='idp'):
-        super().__init__(config_space, source_hpo_data, rng, target_hp_configs,
+        super().__init__(config_space, source_hpo_data, seed, target_hp_configs,
                          surrogate_type=surrogate_type, num_src_hpo_trial=num_src_hpo_trial)
         self.fusion_method = fusion_method
         self.build_source_surrogates()
@@ -45,7 +45,13 @@ class ES(BaseFacade):
         return ranking_loss / n
 
     def train(self, X: np.ndarray, y: np.array):
+        # Build the target surrogate.
+        self.target_surrogate = self.build_single_surrogate(X, y, normalize_y=False)
         # Compute each base surrogate's predictions.
+        if len(y) >= 10:
+            self.w = np.zeros(self.K + 1)
+            self.w[-1] = 1.
+            return
         base_predictions = list()
         for i in range(self.K):
             mean, _ = self.source_surrogates[i].predict(X)
@@ -75,14 +81,18 @@ class ES(BaseFacade):
             w_source[idx] += 1
         w_source = w_source/np.sum(w_source)
         self.w[:-1] = w_source
-
-        if len(y) >= self.min_num_y:
-            w1, w2 = self.calculate_target_weight(X, y)
-        else:
-            w1, w2 = 1., 0.
-
-        self.w[:-1] *= w1
-        self.w[-1] = w2
+        self.w[-1] = 0.
+        # if len(y) < 10:
+        #     w1, w2 = 1., 0.
+        # else:
+        #     w1, w2 = 0., 1.
+        #
+        # # # if len(y) >= self.min_num_y:
+        # # #     w1, w2 = self.calculate_target_weight(X, y)
+        # # else:
+        #
+        # self.w[:-1] *= w1
+        # self.w[-1] = w2
 
         # Disable the target surrogate.
         # self.w[:-1] = self.w[:-1]/np.sum(self.w[:-1])
@@ -91,9 +101,6 @@ class ES(BaseFacade):
         # self.w[-1] = 1.
         print('=' * 20)
         print('current weights', self.w)
-
-        # Build the target surrogate.
-        self.target_surrogate = self.build_single_surrogate(X, y)
 
     def calculate_weight_generalization(self, X, y):
         weight = self.w.copy()

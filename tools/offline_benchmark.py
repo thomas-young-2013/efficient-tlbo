@@ -75,7 +75,7 @@ if __name__ == "__main__":
             for _id, data in enumerate(hpo_data):
                 if _id != id:
                     source_hpo_data.append(data)
-            rng = np.random.RandomState(1)
+            seed = 1
             if mth == 'rgpe':
                 surrogate_class = RGPE
             elif mth == 'notl':
@@ -86,11 +86,11 @@ if __name__ == "__main__":
                 surrogate_class = RandomSearch
             else:
                 raise ValueError('Invalid baseline name - %s.' % mth)
-            surrogate = surrogate_class(config_space, source_hpo_data, target_hpo_data, rng,
+            surrogate = surrogate_class(config_space, source_hpo_data, target_hpo_data, seed,
                                         surrogate_type=surrogate_type,
                                         num_src_hpo_trial=n_src_data)
             smbo = SMBO_OFFLINE(target_hpo_data, config_space, surrogate,
-                                rng=rng, max_runs=trial_num)
+                                random_seed=seed, max_runs=trial_num)
             result = list()
             for _ in range(trial_num):
                 config, _, perf, _ = smbo.iterate()

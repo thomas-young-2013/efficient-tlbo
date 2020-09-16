@@ -6,7 +6,7 @@ from typing import List
 
 from tlbo.model.util_funcs import get_types
 from tlbo.model.model_builder import build_model
-from tlbo.utils.constants import VERY_SMALL_NUMBER
+from tlbo.utils.constants import VERY_SMALL_NUMBER, MAXINT
 from tlbo.config_space import ConfigurationSpace, Configuration
 from tlbo.config_space.util import convert_configurations_to_array
 from tlbo.utils.normalization import zero_mean_unit_var_normalization
@@ -15,13 +15,13 @@ from tlbo.utils.normalization import zero_mean_unit_var_normalization
 class BaseFacade(object):
     def __init__(self, config_space: ConfigurationSpace,
                  source_hpo_data: List,
-                 rng: np.random.RandomState,
+                 seed: int,
                  target_hp_configs: List = None,
                  history_dataset_features: List = None,
                  num_src_hpo_trial: int=50,
                  surrogate_type='gp_mcmc'):
         self.config_space = config_space
-        self.rng = rng
+        self.random_seed = seed
         # The number of source problems.
         self.K = len(source_hpo_data)
         self.num_src_hpo_trial = num_src_hpo_trial
@@ -53,7 +53,8 @@ class BaseFacade(object):
         self.source_surrogates = list()
         for hpo_evaluation_data in self.source_hpo_data:
             print('.', end='')
-            model = build_model(self.surrogate_type, self.config_space, self.rng)
+            model = build_model(self.surrogate_type, self.config_space,
+                                np.random.RandomState(self.random_seed))
             _X, _y = list(), list()
             for _config, _config_perf in hpo_evaluation_data.items():
                 _X.append(_config)
@@ -72,12 +73,13 @@ class BaseFacade(object):
         print()
         print('Building base surrogates took %.3fs.' % (time.time() - start_time))
 
-    def build_single_surrogate(self, X: np.ndarray, y: np.array):
-        model = build_model(self.surrogate_type, self.config_space, self.rng)
+    def build_single_surrogate(self, X: np.ndarray, y: np.array, normalize_y=True):
+        model = build_model(self.surrogate_type, self.config_space, np.random.RandomState(self.random_seed))
         # Prevent the same value in y.
-        if (y == y[0]).all():
-            y[0] += 1e-4
-        y, _, _ = zero_mean_unit_var_normalization(y)
+        if normalize_y:
+            if (y == y[0]).all():
+                y[0] += 1e-4
+            y, _, _ = zero_mean_unit_var_normalization(y)
         model.train(X, y)
         return model
 

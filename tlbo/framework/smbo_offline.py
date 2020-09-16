@@ -23,13 +23,15 @@ class SMBO_OFFLINE(BasePipeline):
                  logging_dir='./logs',
                  initial_runs=3,
                  task_id=None,
-                 rng=None):
+                 random_seed=None):
         super().__init__(config_space, task_id, output_dir=logging_dir)
         self.logger = super()._get_logger(self.__class__.__name__)
-        if rng is None:
-            run_id, rng = get_rng()
-        self.rng = rng
-        self.seed = rng.randint(MAXINT)
+        if random_seed is None:
+            _, rng = get_rng()
+            random_seed = rng.randint(MAXINT)
+        self.random_seed = random_seed
+        self.rng = np.random.RandomState(self.random_seed)
+
         self.initial_configurations = initial_configurations
         if initial_configurations is None:
             self.init_num = initial_runs
@@ -47,16 +49,19 @@ class SMBO_OFFLINE(BasePipeline):
         self.perfs = list()
 
         # Initialize the basic component in BO.
-        self.config_space.seed(self.seed)
-        np.random.seed(self.seed)
+        self.config_space.seed(self.random_seed)
+        np.random.seed(self.random_seed)
         self.model = surrogate_model
         self.acquisition_function = EI(self.model)
         self.acq_optimizer = OfflineSearch(self.configuration_list,
                                            self.acquisition_function,
                                            config_space,
-                                           rng=np.random.RandomState(self.seed))
-        self.random_configuration_chooser = ChooserProb(prob=0.25,
-                                                        rng=np.random.RandomState(self.seed))
+                                           rng=np.random.RandomState(self.random_seed)
+                                           )
+        self.random_configuration_chooser = ChooserProb(
+            prob=0.25,
+            rng=np.random.RandomState(self.random_seed)
+        )
 
         # Set the parameter in metric.
         ys = list(self.target_hpo_measurements.values())
@@ -139,10 +144,13 @@ class SMBO_OFFLINE(BasePipeline):
         if _config_num < self.init_num:
             default_config = self.config_space.get_default_configuration()
             if default_config not in (self.configurations + self.failed_configurations):
-                return default_config
+                config = default_config
             else:
-                return self.sample_random_config()[0]
-
+                config = self.sample_random_config()[0]
+            print(_config_num, config)
+            return config
+        else:
+            raise ValueError('error.')
         if self.random_configuration_chooser.check(self.iteration_id):
             # print('=' * 20)
             # print(self.iteration_id, 'random')

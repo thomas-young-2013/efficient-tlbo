@@ -12,13 +12,6 @@ from sklearn.exceptions import NotFittedError
 from ConfigSpace import ConfigurationSpace
 from tlbo.utils.constants import VERY_SMALL_NUMBER
 
-__author__ = "Marius Lindauer"
-__copyright__ = "Copyright 2016, ML4AAD"
-__license__ = "3-clause BSD"
-__maintainer__ = "Marius Lindauer"
-__email__ = "lindauer@cs.uni-freiburg.de"
-__version__ = "0.0.1"
-
 
 class AbstractEPM(object):
     """Abstract implementation of the EPM API.
