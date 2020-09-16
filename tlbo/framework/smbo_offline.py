@@ -147,10 +147,8 @@ class SMBO_OFFLINE(BasePipeline):
                 config = default_config
             else:
                 config = self.sample_random_config()[0]
-            print(_config_num, config)
             return config
-        else:
-            raise ValueError('error.')
+
         if self.random_configuration_chooser.check(self.iteration_id):
             # print('=' * 20)
             # print(self.iteration_id, 'random')
