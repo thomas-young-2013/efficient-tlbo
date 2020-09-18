@@ -7,8 +7,8 @@ from tlbo.config_space import Configuration, ConfigurationSpace
 from tlbo.optimizer.ei_offline_optimizer import OfflineSearch
 from tlbo.optimizer.random_configuration_chooser import ChooserProb
 from tlbo.config_space.util import convert_configurations_to_array
-from tlbo.utils.normalization import zero_mean_unit_var_normalization
 from tlbo.utils.constants import MAXINT, SUCCESS, FAILDED, TIMEOUT
+from tlbo.acquisition_function.ta_acquisition import TAQ_EI
 from tlbo.framework.smbo import BasePipeline
 from tlbo.facade.base_facade import BaseFacade
 
@@ -18,7 +18,11 @@ class SMBO_OFFLINE(BasePipeline):
                  target_hpo_data: Dict,
                  config_space: ConfigurationSpace,
                  surrogate_model: BaseFacade,
-                 initial_configurations=None,
+                 acq_func: str = 'ei',
+                 source_hpo_data=None,
+                 enable_init_design=False,
+                 num_src_hpo_trial=50,
+                 surrogate_type='rf',
                  max_runs=200,
                  logging_dir='./logs',
                  initial_runs=3,
@@ -31,12 +35,19 @@ class SMBO_OFFLINE(BasePipeline):
             random_seed = rng.randint(MAXINT)
         self.random_seed = random_seed
         self.rng = np.random.RandomState(self.random_seed)
+        self.source_hpo_data = source_hpo_data
+        self.num_src_hpo_trial = num_src_hpo_trial
+        self.surrogate_type = surrogate_type
+        self.acq_func = acq_func
+        if enable_init_design:
+            self.initial_configurations = self.initial_design(initial_runs)
+        else:
+            self.initial_configurations = None
 
-        self.initial_configurations = initial_configurations
-        if initial_configurations is None:
+        if self.initial_configurations is None:
             self.init_num = initial_runs
         else:
-            self.init_num = len(initial_configurations)
+            self.init_num = len(self.initial_configurations)
 
         self.max_iterations = max_runs
         self.iteration_id = 0
@@ -52,7 +63,12 @@ class SMBO_OFFLINE(BasePipeline):
         self.config_space.seed(self.random_seed)
         np.random.seed(self.random_seed)
         self.model = surrogate_model
-        self.acquisition_function = EI(self.model)
+        if self.acq_func == 'ei':
+            self.acquisition_function = EI(self.model)
+        elif self.acq_func == 'taf':
+            self.acquisition_function = TAQ_EI(self.model.target_surrogate,
+                                               self.model.source_surrogates)
+            self.acquisition_function.update(source_etas=self.model.eta_list)
         self.acq_optimizer = OfflineSearch(self.configuration_list,
                                            self.acquisition_function,
                                            config_space,
@@ -78,6 +94,31 @@ class SMBO_OFFLINE(BasePipeline):
     def run(self):
         while self.iteration_id < self.max_iterations:
             self.iterate()
+
+    def sort_configs_by_score(self):
+        from tlbo.facade.ensemble_selection import ES
+        surrogate = ES(self.config_space, self.source_hpo_data,
+                       self.configuration_list, self.random_seed,
+                       surrogate_type=self.surrogate_type,
+                       num_src_hpo_trial=self.num_src_hpo_trial)
+        X = convert_configurations_to_array(self.configuration_list)
+        scores, _ = surrogate.predict(X)
+        sorted_items = sorted(list(zip(self.configuration_list, scores)), key=lambda x: x[1])
+        return [item[0] for item in sorted_items]
+
+    def initial_design(self, n_init=3):
+        initial_configs = list()
+        configs_ = self.sort_configs_by_score()[:100]
+        from sklearn.cluster import KMeans
+        X = convert_configurations_to_array(configs_)
+        kmeans = KMeans(n_clusters=n_init, random_state=0).fit(X)
+        labels = kmeans.predict(X)
+        label_set = set()
+        for idx, _config in enumerate(configs_):
+            if labels[idx] not in label_set:
+                label_set.add(labels[idx])
+                initial_configs.append(_config)
+        return initial_configs
 
     def iterate(self):
         if len(self.configurations) == 0:
@@ -142,12 +183,15 @@ class SMBO_OFFLINE(BasePipeline):
     def choose_next(self, X: np.ndarray, Y: np.ndarray):
         _config_num = X.shape[0]
         if _config_num < self.init_num:
-            default_config = self.config_space.get_default_configuration()
-            if default_config not in (self.configurations + self.failed_configurations):
-                config = default_config
+            if self.initial_configurations is None:
+                default_config = self.config_space.get_default_configuration()
+                if default_config not in (self.configurations + self.failed_configurations):
+                    config = default_config
+                else:
+                    config = self.sample_random_config()[0]
+                return config
             else:
-                config = self.sample_random_config()[0]
-            return config
+                return self.initial_configurations[_config_num]
 
         if self.random_configuration_chooser.check(self.iteration_id):
             # print('=' * 20)
@@ -164,8 +208,14 @@ class SMBO_OFFLINE(BasePipeline):
             incumbent_value = self.history_container.get_incumbents()[0][1]
             # y_, _, _ = zero_mean_unit_var_normalization(Y)
             # incumbent_value = np.min(y_)
-            self.acquisition_function.update(model=self.model, eta=incumbent_value,
-                                             num_data=len(self.history_container.data))
+            if self.acq_func == 'ei':
+                self.acquisition_function.update(model=self.model, eta=incumbent_value,
+                                                 num_data=len(self.history_container.data))
+            elif self.acq_func == 'taf':
+                self.acquisition_function.update_target_model(self.model.target_surrogate,
+                                                              incumbent_value,
+                                                              num_data=len(self.history_container.data),
+                                                              model_weights=self.model.w)
             start_time = time.time()
             sorted_configs = self.acq_optimizer.maximize(
                 runhistory=self.history_container,

@@ -9,7 +9,7 @@ from tlbo.model.model_builder import build_model
 from tlbo.utils.constants import VERY_SMALL_NUMBER, MAXINT
 from tlbo.config_space import ConfigurationSpace, Configuration
 from tlbo.config_space.util import convert_configurations_to_array
-from tlbo.utils.normalization import zero_mean_unit_var_normalization
+from tlbo.utils.normalization import zero_mean_unit_var_normalization, zero_one_normalization
 
 
 class BaseFacade(object):
@@ -19,7 +19,7 @@ class BaseFacade(object):
                  target_hp_configs: List = None,
                  history_dataset_features: List = None,
                  num_src_hpo_trial: int=50,
-                 surrogate_type='gp_mcmc'):
+                 surrogate_type='rf'):
         self.config_space = config_space
         self.random_seed = seed
         # The number of source problems.
@@ -38,6 +38,7 @@ class BaseFacade(object):
         self.instance_features = None
         self.var_threshold = VERY_SMALL_NUMBER
         self.w = None
+        self.eta_list = list()
 
     @abc.abstractmethod
     def train(self, X: np.ndarray, y: np.ndarray):
@@ -67,7 +68,8 @@ class BaseFacade(object):
             # Prevent the same value in y.
             if (y == y[0]).all():
                 y[0] += 1e-4
-            y, _, _ = zero_mean_unit_var_normalization(y)
+            y, _, _ = zero_one_normalization(y)
+            self.eta_list.append(np.min(y))
             model.train(X, y)
             self.source_surrogates.append(model)
         print()
@@ -76,10 +78,10 @@ class BaseFacade(object):
     def build_single_surrogate(self, X: np.ndarray, y: np.array, normalize_y=True):
         model = build_model(self.surrogate_type, self.config_space, np.random.RandomState(self.random_seed))
         # Prevent the same value in y.
+        if (y == y[0]).all():
+            y[0] += 1e-4
         if normalize_y:
-            if (y == y[0]).all():
-                y[0] += 1e-4
-            y, _, _ = zero_mean_unit_var_normalization(y)
+            y, _, _ = zero_one_normalization(y)
         model.train(X, y)
         return model
 
@@ -135,8 +137,11 @@ class BaseFacade(object):
         # Predictions from source surrogates.
         for i in range(0, self.K + 1):
             if i == self.K:
-                _mu, _var = self.target_surrogate.predict(X)
-                target_var = _var
+                if self.target_surrogate is not None:
+                    _mu, _var = self.target_surrogate.predict(X)
+                    target_var = _var
+                else:
+                    _mu, _var = 0., 0.
             else:
                 _mu, _var = self.source_surrogates[i].predict(X)
             mu += w[i] * _mu

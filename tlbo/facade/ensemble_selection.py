@@ -4,16 +4,19 @@ from tlbo.facade.base_facade import BaseFacade
 
 class ES(BaseFacade):
     def __init__(self, config_space, source_hpo_data, target_hp_configs, seed,
-                 surrogate_type='gp', num_src_hpo_trial=50, fusion_method='idp'):
+                 surrogate_type='rf', num_src_hpo_trial=50, fusion_method='idp_lc'):
         super().__init__(config_space, source_hpo_data, seed, target_hp_configs,
                          surrogate_type=surrogate_type, num_src_hpo_trial=num_src_hpo_trial)
         self.fusion_method = fusion_method
         self.build_source_surrogates()
         # Weights for base surrogates and the target surrogate.
         self.w = np.array([1. / self.K] * self.K + [0.])
-        self.ensemble_size = 200
+        self.ensemble_size = 100
         self.base_predictions = list()
         self.min_num_y = 5
+
+        self.hist_ws = list()
+        self.iteration_id = 0
 
     @staticmethod
     def penalty_func(x1, x2, y1, y2):
@@ -21,59 +24,45 @@ class ES(BaseFacade):
             z = y2 - y1
         else:
             z = y1 - y2
+        z *= 5.
+        # print(z > 0, np.log(1 + np.exp(-z)))
         return np.log(1 + np.exp(-z))
         # return int((x1 < x2) ^ (y1 < y2))
 
     @staticmethod
     def calculate_ranking_loss(y_pred: np.array, y: np.array):
-        n = len(y_pred)
-        assert len(y) == n
+        n = y_pred.shape[0]
         ranking_loss = 0.
         for i in range(n):
             for j in range(i+1, n):
                 ranking_loss += ES.penalty_func(y[i], y[j], y_pred[i], y_pred[j])
         return ranking_loss / (n * n)
 
-    @staticmethod
-    def calculate_generalization_loss(y_pred: np.array, y: np.array):
-        n = len(y_pred)
-        assert len(y) == n
-        ranking_loss = 0.
-        j = n - 1
-        for i in range(n - 1):
-            ranking_loss += ES.penalty_func(y[i], y[j], y_pred[i], y_pred[j])
-        return ranking_loss / n
-
     def train(self, X: np.ndarray, y: np.array):
+        instance_num = X.shape[0]
         # Build the target surrogate.
-        self.target_surrogate = self.build_single_surrogate(X, y, normalize_y=False)
-        # Compute each base surrogate's predictions.
-        if len(y) >= 10:
-            self.w = np.zeros(self.K + 1)
-            self.w[-1] = 1.
-            return
+        self.target_surrogate = self.build_single_surrogate(X, y)
+
         base_predictions = list()
+        surrogate_ensemble = list()
+        surrogate_idx = list()
+
         for i in range(self.K):
             mean, _ = self.source_surrogates[i].predict(X)
             mean = mean.flatten()
             base_predictions.append(mean)
-        self.surrogate_ensemble = list()
-        surrogate_idx = list()
 
         for iter_id in range(self.ensemble_size):
             loss_list = list()
             for i in range(self.K):
-                if len(self.surrogate_ensemble) == 0:
+                if len(surrogate_ensemble) == 0:
                     _predictions = base_predictions[i]
                 else:
-                    _predictions = np.mean(self.surrogate_ensemble + [base_predictions[i]], axis=0)
+                    _predictions = np.mean(surrogate_ensemble + [base_predictions[i]], axis=0)
                 loss_list.append(self.calculate_ranking_loss(_predictions, y))
             argmin_idx = np.argmin(loss_list)
-            # min_loss = np.min(loss_list)
-
-            self.surrogate_ensemble.append(base_predictions[argmin_idx])
+            surrogate_ensemble.append(base_predictions[argmin_idx])
             surrogate_idx.append(argmin_idx)
-            # print('in iter %d' % iter_id, 'loss is %.4f' % min_loss)
 
         # Update base surrogates' weights.
         w_source = np.zeros(self.K)
@@ -82,57 +71,61 @@ class ES(BaseFacade):
         w_source = w_source/np.sum(w_source)
         self.w[:-1] = w_source
         self.w[-1] = 0.
-        # if len(y) < 10:
-        #     w1, w2 = 1., 0.
-        # else:
-        #     w1, w2 = 0., 1.
-        #
-        # # # if len(y) >= self.min_num_y:
-        # # #     w1, w2 = self.calculate_target_weight(X, y)
-        # # else:
-        #
-        # self.w[:-1] *= w1
-        # self.w[-1] = w2
+        if instance_num >= self.min_num_y:
+            # w_t = self.calculate_target_weight(X, y)
+            w_t = self.calculate_weight_by_sampling(X, y)
+            self.w[:-1] *= (1 - w_t)
+            self.w[-1] = w_t
+        else:
+            self.w[-1] = 0.
 
-        # Disable the target surrogate.
-        # self.w[:-1] = self.w[:-1]/np.sum(self.w[:-1])
-        # self.w[-1] = 0.
-        # self.w[:-1] = np.zeros(self.K)
-        # self.w[-1] = 1.
-        print('=' * 20)
-        print('current weights', self.w)
+        w = self.w.copy()
+        weight_str = ','.join([('%.2f' % item) for item in w])
+        print('In iter-%d' % self.iteration_id)
+        print(weight_str)
+        self.hist_ws.append(w)
+        self.iteration_id += 1
 
-    def calculate_weight_generalization(self, X, y):
-        weight = self.w.copy()
-        weight[-1] = 0.
-        weight[:-1] = weight[:-1]/np.sum(weight[:-1])
-        mu_list, _ = self.combine_predictions(X, combination_method='idp_lc', weight=weight)
-        pred_source = mu_list.flatten()
-        loss_ss = self.calculate_generalization_loss(pred_source, y)
-        pred_target, _ = self.target_surrogate.predict(X)
-        pred_target = pred_target.flatten()
-        loss_ts = self.calculate_generalization_loss(pred_target, y)
-        print(loss_ss, loss_ts)
+    def predict_target_surrogate_cv(self, X, y):
+        k_fold_num = 5
+        _mu, _var = list(), list()
+
+        # Conduct K-fold cross validation.
+        from sklearn.model_selection import KFold
+        kf = KFold(n_splits=k_fold_num)
+        idxs = list()
+        for train_idx, val_idx in kf.split(X):
+            idxs.extend(list(val_idx))
+            X_train, X_val, y_train, y_val = X[train_idx,:], X[val_idx,:], y[train_idx], y[val_idx]
+            model = self.build_single_surrogate(X_train, y_train)
+            mu, var = model.predict(X_val)
+            mu, var = mu.flatten(), var.flatten()
+            _mu.extend(list(mu))
+            _var.extend(list(var))
+        assert (np.array(idxs) == np.arange(X.shape[0])).all()
+        return np.asarray(_mu), np.asarray(_var)
 
     def calculate_target_weight(self, X, y):
-        source_prediction = np.mean(self.surrogate_ensemble, axis=0)
-        if self.target_surrogate is None:
-            # print('=' * 20)
-            # print('#Iteration=', len(y), 'target surrogate is none!')
-            # print('=' * 20)
-            return 1., 0.
-        target_prediction, _ = self.target_surrogate.predict(X)
-        base_predictions = [source_prediction.flatten(), target_prediction.flatten()]
+        surrogate_ids = list()
+        surrogate_preds = list()
+        for idx in range(self.K):
+            surrogate_ids.append(idx)
+            _mu, _var = self.source_surrogates[idx].predict(X)
+            surrogate_preds.append((_mu.flatten(), _var.flatten()))
+        target_surrogate_pred = self.predict_target_surrogate_cv(X, y)
+        surrogate_ids.append(self.K)
+        surrogate_preds.append(target_surrogate_pred)
+        base_predictions = [item[0] for item in surrogate_preds]
 
         _ensemble = list()
         surrogate_idx = list()
-        _K = 2
+        _K = len(surrogate_ids)
 
         for iter_id in range(self.ensemble_size):
             loss_list = list()
             for i in range(_K):
                 _predictions = np.mean(_ensemble + [base_predictions[i]], axis=0)
-                loss_list.append(self.calculate_generalization_loss(_predictions, y))
+                loss_list.append(self.calculate_ranking_loss(_predictions, y))
             argmin_idx = np.argmin(loss_list)
             _ensemble.append(base_predictions[argmin_idx])
             surrogate_idx.append(argmin_idx)
@@ -142,67 +135,58 @@ class ES(BaseFacade):
             _w[idx] += 1
         _w = _w/np.sum(_w)
         print(_w)
-        return _w
+        return _w[-1]
 
-    def calculate_weight(self, X, y):
-        weight = self.w.copy()
-        weight[-1] = 0.
-        weight[:-1] = weight[:-1]/np.sum(weight[:-1])
-        mu_list, var_list = self.combine_predictions(X, combination_method='idp_lc', weight=weight)
-        mu_list, var_list = mu_list.flatten(), var_list.flatten()
+    def calculate_weight_by_sampling(self, X, y):
+        surrogate_ids = list()
+        surrogate_preds = list()
+        for idx in range(self.K):
+            if self.w[idx] != 0.:
+                surrogate_ids.append(idx)
+                _mu, _var = self.source_surrogates[idx].predict(X)
+                surrogate_preds.append((_mu.flatten(), _var.flatten()))
+        target_surrogate_pred = self.predict_target_surrogate_cv(X, y)
+        surrogate_ids.append(self.K)
+        surrogate_preds.append(target_surrogate_pred)
 
-        k_fold_num = 5
-        cached_mu_list, cached_var_list = list(), list()
-        instance_num = len(y)
-        skip_target_surrogate = False if instance_num >= k_fold_num else True
+        _ensemble = list()
+        surrogate_idx = list()
+        _K = len(surrogate_ids)
 
-        if not skip_target_surrogate:
-            # Conduct K-fold cross validation.
-            fold_num = instance_num // k_fold_num
-            for i in range(k_fold_num):
-                row_indexs = list(range(instance_num))
-                bound = (instance_num - i * fold_num) if i == (k_fold_num - 1) else fold_num
-                for index in range(bound):
-                    del row_indexs[i * fold_num]
+        for _ in range(self.ensemble_size):
+            loss_list = list()
+            for i in range(_K):
+                _mu, _var = surrogate_preds[i]
+                y_pred = np.random.normal(_mu, _var)
+                loss_list.append(self.calculate_ranking_loss(y_pred, y))
+            argmin_idx = np.argmin(loss_list)
+            surrogate_idx.append(argmin_idx)
 
-                if (y[row_indexs] == y[row_indexs[0]]).all():
-                    y[row_indexs[0]] += 1e-4
-                model = self.build_single_surrogate(X[row_indexs, :], y[row_indexs])
-                mu, var = model.predict(X)
-                cached_mu_list.append(mu.flatten())
-                cached_var_list.append(var.flatten())
-
-        argmin_list = np.zeros(2)
-        for _ in range(100):
-            ranking_loss_list = list()
-            sampled_y = np.random.normal(mu_list, var_list)
-            _loss_ss = self.calculate_ranking_loss(sampled_y, y)
-            ranking_loss_list.append(_loss_ss)
-
-            # Compute ranking loss for target surrogate.
-            _loss_ts = 0
-            if not skip_target_surrogate:
-                fold_num = instance_num // k_fold_num
-                for fold in range(k_fold_num):
-                    sampled_y = np.random.normal(cached_mu_list[fold], cached_var_list[fold])
-                    bound = instance_num if fold == (k_fold_num - 1) else (fold + 1) * fold_num
-                    for i in range(fold_num * fold, bound):
-                        for j in range(instance_num):
-                            _loss_ts += self.penalty_func(y[i], y[j], sampled_y[i], sampled_y[j])
-            else:
-                _loss_ts = instance_num * instance_num
-            ranking_loss_list.append(_loss_ts / (instance_num * instance_num))
-            print(ranking_loss_list)
-            argmin_task = np.argmin(ranking_loss_list)
-            argmin_list[argmin_task] += 1
-
-        # Update the weights.
-        w1, w2 = argmin_list / np.sum(argmin_list)
-        print(w1, w2)
-        return w1, w2
+        _w = np.zeros(len(surrogate_preds))
+        for idx in surrogate_idx:
+            _w[idx] += 1
+        _w = _w/np.sum(_w)
+        print(_w)
+        return _w[-1]
 
     def predict(self, X: np.array):
-        return self.combine_predictions(X, combination_method='idp_lc')
+        # return self.combine_predictions(X, combination_method='idp_lc')
+        mu, var = self.target_surrogate.predict(X)
+        # Target surrogate predictions with weight.
+        mu *= self.w[-1]
+        # var *= (self.w[-1] * self.w[-1])
+
+        # Base surrogate predictions with corresponding weights.
+        for i in range(0, self.K):
+            if self.w[i] > 0:
+                mu_t, var_t = self.source_surrogates[i].predict(X)
+                # print('=' * 30)
+                # print(mu_t[:10])
+                # print(var_t[:10])
+                # print('=' * 30)
+                mu += self.w[i] * mu_t
+                # var += self.w[i] * self.w[i] * var_t
+        return mu, var
 
     def get_weights(self):
         return self.w

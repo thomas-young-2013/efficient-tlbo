@@ -4,7 +4,7 @@ from tlbo.facade.base_facade import BaseFacade
 
 class RGPE(BaseFacade):
     def __init__(self, config_space, source_hpo_data, target_hp_configs, seed,
-                 surrogate_type='gp', num_src_hpo_trial=50):
+                 surrogate_type='rf', num_src_hpo_trial=50):
         super().__init__(config_space, source_hpo_data, seed, target_hp_configs,
                          surrogate_type=surrogate_type, num_src_hpo_trial=num_src_hpo_trial)
         
@@ -12,11 +12,13 @@ class RGPE(BaseFacade):
         # Weights for base surrogates and the target surrogate.
         self.w = [1./self.K]*self.K + [0.]
         self.scale = True
-        self.num_sample = np.max([50, (self.K + 1) * 5])
+        self.num_sample = 100
 
         # Preventing weight dilution.
         self.ignored_flag = [False] * self.K
-    
+        self.hist_ws = list()
+        self.iteration_id = 0
+
     def train(self, X: np.ndarray, y: np.array):
         # Train the target surrogate and update the weight w.
         mu_list, var_list = list(), list()
@@ -118,7 +120,15 @@ class RGPE(BaseFacade):
         # self.w[:-1] = self.w[:-1]/np.sum(self.w[:-1])
         # self.w[-1] = 0.
         print('=' * 20)
-        print(self.w)
+        w = self.w.copy()
+        for id in range(self.K):
+            if self.ignored_flag[id]:
+                w[id] = 0.
+        weight_str = ','.join([('%.2f' % item) for item in w])
+        print('In iter-%d' % self.iteration_id)
+        print(weight_str)
+        self.hist_ws.append(w)
+        self.iteration_id += 1
 
     def predict(self, X: np.array):
         mu, var = self.target_surrogate.predict(X)
