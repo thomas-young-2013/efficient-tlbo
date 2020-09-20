@@ -7,8 +7,8 @@ class RGPE(BaseFacade):
                  surrogate_type='rf', num_src_hpo_trial=50):
         super().__init__(config_space, source_hpo_data, seed, target_hp_configs,
                          surrogate_type=surrogate_type, num_src_hpo_trial=num_src_hpo_trial)
-        
-        self.build_source_surrogates()
+        self.method_id = 'rgpe'
+        self.build_source_surrogates(normalize='standardize')
         # Weights for base surrogates and the target surrogate.
         self.w = [1./self.K]*self.K + [0.]
         self.scale = True
@@ -28,7 +28,7 @@ class RGPE(BaseFacade):
             var_list.append(var)
 
         # Build the target surrogate.
-        self.target_surrogate = self.build_single_surrogate(X, y)
+        self.target_surrogate = self.build_single_surrogate(X, y, normalize='standardize')
 
         # Pretrain the leave-one-out surrogates.
         k_fold_num = 5
@@ -46,7 +46,7 @@ class RGPE(BaseFacade):
                     del row_indexs[i]
                     if (y[row_indexs] == y[row_indexs[0]]).all():
                         y[row_indexs[0]] += 1e-4
-                    model = self.build_single_surrogate(X[row_indexs, :], y[row_indexs])
+                    model = self.build_single_surrogate(X[row_indexs, :], y[row_indexs], normalize='standardize')
                     mu, var = model.predict(X)
                     cached_mu_list.append(mu)
                     cached_var_list.append(var)
@@ -62,7 +62,7 @@ class RGPE(BaseFacade):
                     if (y[row_indexs] == y[row_indexs[0]]).all():
                         y[row_indexs[0]] += 1e-4
 
-                    model = self.build_single_surrogate(X[row_indexs, :], y[row_indexs])
+                    model = self.build_single_surrogate(X[row_indexs, :], y[row_indexs], normalize='standardize')
                     mu, var = model.predict(X)
                     cached_mu_list.append(mu)
                     cached_var_list.append(var)

@@ -7,7 +7,8 @@ from tlbo.config_space import Configuration, ConfigurationSpace
 from tlbo.optimizer.ei_offline_optimizer import OfflineSearch
 from tlbo.optimizer.random_configuration_chooser import ChooserProb
 from tlbo.config_space.util import convert_configurations_to_array
-from tlbo.utils.constants import MAXINT, SUCCESS, FAILDED, TIMEOUT
+from tlbo.utils.constants import MAXINT, SUCCESS, FAILDED
+from tlbo.utils.normalization import zero_mean_unit_var_normalization, zero_one_normalization
 from tlbo.acquisition_function.ta_acquisition import TAQ_EI
 from tlbo.framework.smbo import BasePipeline
 from tlbo.facade.base_facade import BaseFacade
@@ -69,6 +70,9 @@ class SMBO_OFFLINE(BasePipeline):
             self.acquisition_function = TAQ_EI(self.model.target_surrogate,
                                                self.model.source_surrogates)
             self.acquisition_function.update(source_etas=self.model.eta_list)
+        else:
+            raise ValueError('invalid acquisition function ~ %s.' % self.acq_func)
+
         self.acq_optimizer = OfflineSearch(self.configuration_list,
                                            self.acquisition_function,
                                            config_space,
@@ -80,8 +84,8 @@ class SMBO_OFFLINE(BasePipeline):
         )
 
         # Set the parameter in metric.
-        ys = list(self.target_hpo_measurements.values())
-        self.y_max, self.y_min = np.max(ys), np.min(ys)
+        self.ys = list(self.target_hpo_measurements.values())
+        self.y_max, self.y_min = np.max(self.ys), np.min(self.ys)
 
     def get_adtm(self):
         y_inc = np.min(self.perfs)
@@ -126,9 +130,9 @@ class SMBO_OFFLINE(BasePipeline):
         else:
             X = convert_configurations_to_array(self.configurations)
         Y = np.array(self.perfs, dtype=np.float64)
-        start_time = time.time()
+        # start_time = time.time()
         config = self.choose_next(X, Y)
-        print('In %d-th iter, config selection took %.3fs' % (self.iteration_id, time.time() - start_time))
+        # print('In %d-th iter, config selection took %.3fs' % (self.iteration_id, time.time() - start_time))
 
         trial_state = SUCCESS
         trial_info = None
@@ -194,20 +198,18 @@ class SMBO_OFFLINE(BasePipeline):
                 return self.initial_configurations[_config_num]
 
         if self.random_configuration_chooser.check(self.iteration_id):
-            # print('=' * 20)
-            # print(self.iteration_id, 'random')
             config = self.sample_random_config()[0]
-            # print(config)
-            # print('=' * 20)
             return config
         else:
             start_time = time.time()
             self.model.train(X, Y)
-            print('training GPs took %.3f' % (time.time() - start_time))
+            print('Training surrogate model took %.3f' % (time.time() - start_time))
 
             incumbent_value = self.history_container.get_incumbents()[0][1]
-            # y_, _, _ = zero_mean_unit_var_normalization(Y)
-            # incumbent_value = np.min(y_)
+            # if self.model.method_id == 'rgpe':
+            #     y_, _, _ = zero_mean_unit_var_normalization(Y)
+            #     incumbent_value = np.min(y_)
+
             if self.acq_func == 'ei':
                 self.acquisition_function.update(model=self.model, eta=incumbent_value,
                                                  num_data=len(self.history_container.data))
@@ -216,6 +218,9 @@ class SMBO_OFFLINE(BasePipeline):
                                                               incumbent_value,
                                                               num_data=len(self.history_container.data),
                                                               model_weights=self.model.w)
+            else:
+                raise ValueError('invalid acquisition function ~ %s.' % self.acq_func)
+
             start_time = time.time()
             sorted_configs = self.acq_optimizer.maximize(
                 runhistory=self.history_container,

@@ -20,6 +20,7 @@ class BaseFacade(object):
                  history_dataset_features: List = None,
                  num_src_hpo_trial: int=50,
                  surrogate_type='rf'):
+        self.method_id = None
         self.config_space = config_space
         self.random_seed = seed
         # The number of source problems.
@@ -48,7 +49,7 @@ class BaseFacade(object):
     def predict(self, X: np.ndarray):
         pass
 
-    def build_source_surrogates(self):
+    def build_source_surrogates(self, normalize):
         print('start to train base surrogates.')
         start_time = time.time()
         self.source_surrogates = list()
@@ -65,23 +66,38 @@ class BaseFacade(object):
             X = X[:self.num_src_hpo_trial]
             y = y[:self.num_src_hpo_trial]
 
-            # Prevent the same value in y.
-            if (y == y[0]).all():
-                y[0] += 1e-4
-            y, _, _ = zero_one_normalization(y)
+            if normalize == 'standardize':
+                if (y == y[0]).all():
+                    y[0] += 1e-4
+                y, _, _ = zero_mean_unit_var_normalization(y)
+            elif normalize == 'scale':
+                if (y == y[0]).all():
+                    y[0] += 1e-4
+                y, _, _ = zero_one_normalization(y)
+                y = 2 * y - 1.
+            else:
+                raise ValueError('Invalid parameter in norm.')
+
             self.eta_list.append(np.min(y))
             model.train(X, y)
             self.source_surrogates.append(model)
         print()
         print('Building base surrogates took %.3fs.' % (time.time() - start_time))
 
-    def build_single_surrogate(self, X: np.ndarray, y: np.array, normalize_y=True):
+    def build_single_surrogate(self, X: np.ndarray, y: np.array, normalize):
+        assert normalize in ['standardize', 'scale', 'none']
         model = build_model(self.surrogate_type, self.config_space, np.random.RandomState(self.random_seed))
-        # Prevent the same value in y.
-        if (y == y[0]).all():
-            y[0] += 1e-4
-        if normalize_y:
+        if normalize == 'standardize':
+            if (y == y[0]).all():
+                y[0] += 1e-4
+            y, _, _ = zero_mean_unit_var_normalization(y)
+        elif normalize == 'scale':
+            if (y == y[0]).all():
+                y[0] += 1e-4
             y, _, _ = zero_one_normalization(y)
+        else:
+            pass
+
         model.train(X, y)
         return model
 

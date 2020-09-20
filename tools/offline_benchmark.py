@@ -66,7 +66,7 @@ if __name__ == "__main__":
     from tlbo.config_space.space_instance import get_configspace_instance
     algo_name = 'liblinear_svc' if algo_id == 'linear' else algo_id
     config_space = get_configspace_instance(algo_id=algo_name)
-    np.random.seed(1)
+    np.random.seed(5)
     seeds = np.random.randint(low=1, high=10000, size=len(hpo_ids))
     p_num = len(hpo_ids) if problem_num == -1 else problem_num
 
@@ -111,7 +111,9 @@ if __name__ == "__main__":
                 # print('%.3f - %.3f' % (adtm, y_inc))
                 result.append([adtm, y_inc, time_taken])
             exp_results.append(result)
-            print('In %d-th problem: %s' % (id, hpo_ids[id]), 'adtm,y_inc', result[-1])
+            print('In %d-th problem: %s' % (id, hpo_ids[id]), 'adtm, y_inc', result[-1])
+            print('min/max', smbo.y_min, smbo.y_max)
+            print('mean,std', np.mean(smbo.ys), np.std(smbo.ys))
             if hasattr(surrogate, 'hist_ws'):
                 weights = np.array(surrogate.hist_ws)
                 trans = lambda x: ','.join([('%.2f' % item) for item in x])
@@ -119,6 +121,9 @@ if __name__ == "__main__":
                 print(weight_str)
                 print('Weight stats.')
                 print(trans(np.mean(weights, axis=0)))
+                source_ids = [item[0] for item in enumerate(list(np.mean(weights, axis=0))) if item[1] != 0]
+                print('Source problems used', source_ids)
+
         if problem_num == -1:
             mth_file = '%s_%s_%d_%d_%s_%s.pkl' % (mth, algo_id, n_src_data, trial_num, surrogate_type, task_id)
             with open(exp_dir + mth_file, 'wb') as f:

@@ -44,7 +44,7 @@ data_dir = args.data_dir
 def fetch_color_marker(m_list):
     color_dict = dict()
     marker_dict = dict()
-    color_list = ['purple', 'royalblue', 'green', 'brown', 'red', 'orange', 'yellowgreen', 'purple']
+    color_list = ['red', 'royalblue', 'green', 'brown', 'purple', 'orange', 'yellowgreen', 'purple']
     markers = ['s', '^', '*', 'v', 'o', 'p', '2', 'x']
 
     def fill_values(name, idx):

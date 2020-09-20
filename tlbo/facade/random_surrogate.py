@@ -7,6 +7,7 @@ class RandomSearch(BaseFacade):
                  surrogate_type='gp', num_src_hpo_trial=50, fusion_method='idp'):
         super().__init__(config_space, source_hpo_data, seed, target_hp_configs,
                          surrogate_type=surrogate_type, num_src_hpo_trial=num_src_hpo_trial)
+        self.method_id = 'rs'
 
     def train(self, X: np.ndarray, y: np.array):
         pass
