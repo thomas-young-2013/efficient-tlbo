@@ -1,6 +1,6 @@
 import collections
-from litebo.config_space import Configuration
-from litebo.utils.constants import MAXINT
+from tlbo.config_space import Configuration
+from tlbo.utils.constants import MAXINT
 
 
 Perf = collections.namedtuple(

@@ -6,22 +6,23 @@ from typing import List
 
 from tlbo.model.util_funcs import get_types
 from tlbo.model.model_builder import build_model
-from tlbo.utils.constants import VERY_SMALL_NUMBER
+from tlbo.utils.constants import VERY_SMALL_NUMBER, MAXINT
 from tlbo.config_space import ConfigurationSpace, Configuration
 from tlbo.config_space.util import convert_configurations_to_array
-from tlbo.utils.normalization import zero_mean_unit_var_normalization
+from tlbo.utils.normalization import zero_mean_unit_var_normalization, zero_one_normalization
 
 
 class BaseFacade(object):
     def __init__(self, config_space: ConfigurationSpace,
                  source_hpo_data: List,
-                 rng: np.random.RandomState,
+                 seed: int,
                  target_hp_configs: List = None,
                  history_dataset_features: List = None,
                  num_src_hpo_trial: int=50,
-                 surrogate_type='gp_mcmc'):
+                 surrogate_type='rf'):
+        self.method_id = None
         self.config_space = config_space
-        self.rng = rng
+        self.random_seed = seed
         # The number of source problems.
         self.K = len(source_hpo_data)
         self.num_src_hpo_trial = num_src_hpo_trial
@@ -38,6 +39,7 @@ class BaseFacade(object):
         self.instance_features = None
         self.var_threshold = VERY_SMALL_NUMBER
         self.w = None
+        self.eta_list = list()
 
     @abc.abstractmethod
     def train(self, X: np.ndarray, y: np.ndarray):
@@ -47,13 +49,14 @@ class BaseFacade(object):
     def predict(self, X: np.ndarray):
         pass
 
-    def build_source_surrogates(self):
+    def build_source_surrogates(self, normalize):
         print('start to train base surrogates.')
         start_time = time.time()
         self.source_surrogates = list()
         for hpo_evaluation_data in self.source_hpo_data:
             print('.', end='')
-            model = build_model(self.surrogate_type, self.config_space, self.rng)
+            model = build_model(self.surrogate_type, self.config_space,
+                                np.random.RandomState(self.random_seed))
             _X, _y = list(), list()
             for _config, _config_perf in hpo_evaluation_data.items():
                 _X.append(_config)
@@ -63,21 +66,38 @@ class BaseFacade(object):
             X = X[:self.num_src_hpo_trial]
             y = y[:self.num_src_hpo_trial]
 
-            # Prevent the same value in y.
-            if (y == y[0]).all():
-                y[0] += 1e-4
-            y, _, _ = zero_mean_unit_var_normalization(y)
+            if normalize == 'standardize':
+                if (y == y[0]).all():
+                    y[0] += 1e-4
+                y, _, _ = zero_mean_unit_var_normalization(y)
+            elif normalize == 'scale':
+                if (y == y[0]).all():
+                    y[0] += 1e-4
+                y, _, _ = zero_one_normalization(y)
+                y = 2 * y - 1.
+            else:
+                raise ValueError('Invalid parameter in norm.')
+
+            self.eta_list.append(np.min(y))
             model.train(X, y)
             self.source_surrogates.append(model)
         print()
         print('Building base surrogates took %.3fs.' % (time.time() - start_time))
 
-    def build_single_surrogate(self, X: np.ndarray, y: np.array):
-        model = build_model(self.surrogate_type, self.config_space, self.rng)
-        # Prevent the same value in y.
-        if (y == y[0]).all():
-            y[0] += 1e-4
-        y, _, _ = zero_mean_unit_var_normalization(y)
+    def build_single_surrogate(self, X: np.ndarray, y: np.array, normalize):
+        assert normalize in ['standardize', 'scale', 'none']
+        model = build_model(self.surrogate_type, self.config_space, np.random.RandomState(self.random_seed))
+        if normalize == 'standardize':
+            if (y == y[0]).all():
+                y[0] += 1e-4
+            y, _, _ = zero_mean_unit_var_normalization(y)
+        elif normalize == 'scale':
+            if (y == y[0]).all():
+                y[0] += 1e-4
+            y, _, _ = zero_one_normalization(y)
+        else:
+            pass
+
         model.train(X, y)
         return model
 
@@ -116,10 +136,16 @@ class BaseFacade(object):
             return mean, var
         raise ValueError('Unexpected case happened.')
 
-    def combine_predictions(self, X: np.array, combination_method: str = 'idp_lc'):
+    def combine_predictions(self, X: np.array,
+                            combination_method: str = 'idp_lc',
+                            weight: np.array = None):
         n, m = X.shape[0], len(self.w)
         mu, var = np.zeros((n, 1)), np.zeros((n, 1))
-        w = self.w
+        if weight is None:
+            w = self.w
+        else:
+            w = weight
+
         var_buf = np.zeros((n, m))
         mu_buf = np.zeros((n, m))
 
@@ -127,11 +153,11 @@ class BaseFacade(object):
         # Predictions from source surrogates.
         for i in range(0, self.K + 1):
             if i == self.K:
-                if self.target_surrogate is None:
-                    _mu, _var = np.zeros((n, 1)), np.zeros((n, 1))
-                else:
+                if self.target_surrogate is not None:
                     _mu, _var = self.target_surrogate.predict(X)
-                target_var = _var
+                    target_var = _var
+                else:
+                    _mu, _var = 0., 0.
             else:
                 _mu, _var = self.source_surrogates[i].predict(X)
             mu += w[i] * _mu
@@ -139,8 +165,10 @@ class BaseFacade(object):
 
             # compute the gaussian experts.
             if combination_method == 'gpoe':
-                var_buf[:, i] = (1./_var*w[i]).flatten()
-                mu_buf[:, i] = (1./_var*_mu*w[i]).flatten()
+                _mu, _var = _mu.flatten(), _var.flatten()
+                if (_var != 0).all():
+                    var_buf[:, i] = (1./_var*w[i])
+                    mu_buf[:, i] = (1./_var*_mu*w[i])
 
         if combination_method == 'no_var':
             return mu, target_var
@@ -151,6 +179,6 @@ class BaseFacade(object):
             tmp[tmp == 0.] = 1e-5
             var = 1. / tmp
             mu = np.sum(mu_buf, axis=1) * var
-            return mu, var
+            return mu.reshape(-1, 1), var.reshape(-1, 1)
         else:
             raise ValueError('Invalid combination method %s.' % combination_method)

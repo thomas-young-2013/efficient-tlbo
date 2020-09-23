@@ -3,20 +3,22 @@ from tlbo.facade.base_facade import BaseFacade
 
 
 class RGPE(BaseFacade):
-    def __init__(self, config_space, source_hpo_data, target_hp_configs, rng,
-                 surrogate_type='gp', num_src_hpo_trial=50):
-        super().__init__(config_space, source_hpo_data, rng, target_hp_configs,
+    def __init__(self, config_space, source_hpo_data, target_hp_configs, seed,
+                 surrogate_type='rf', num_src_hpo_trial=50):
+        super().__init__(config_space, source_hpo_data, seed, target_hp_configs,
                          surrogate_type=surrogate_type, num_src_hpo_trial=num_src_hpo_trial)
-        
-        self.build_source_surrogates()
+        self.method_id = 'rgpe'
+        self.build_source_surrogates(normalize='standardize')
         # Weights for base surrogates and the target surrogate.
         self.w = [1./self.K]*self.K + [0.]
         self.scale = True
-        self.num_sample = np.max([50, (self.K + 1) * 5])
+        self.num_sample = 100
 
         # Preventing weight dilution.
         self.ignored_flag = [False] * self.K
-    
+        self.hist_ws = list()
+        self.iteration_id = 0
+
     def train(self, X: np.ndarray, y: np.array):
         # Train the target surrogate and update the weight w.
         mu_list, var_list = list(), list()
@@ -26,24 +28,25 @@ class RGPE(BaseFacade):
             var_list.append(var)
 
         # Build the target surrogate.
-        self.target_surrogate = self.build_single_surrogate(X, y)
+        self.target_surrogate = self.build_single_surrogate(X, y, normalize='standardize')
 
         # Pretrain the leave-one-out surrogates.
         k_fold_num = 5
         cached_mu_list, cached_var_list = list(), list()
         instance_num = len(y)
         skip_target_surrogate = False if instance_num >= k_fold_num else True
+        # Ignore the target surrogate.
+        # skip_target_surrogate = True
 
         if not skip_target_surrogate:
             # Conduct leave-one-out evaluation.
-            self.build_single_surrogate(X, y)
             if instance_num < k_fold_num:
                 for i in range(instance_num):
                     row_indexs = list(range(instance_num))
                     del row_indexs[i]
                     if (y[row_indexs] == y[row_indexs[0]]).all():
                         y[row_indexs[0]] += 1e-4
-                    model = self.build_single_surrogate(X[row_indexs, :], y[row_indexs])
+                    model = self.build_single_surrogate(X[row_indexs, :], y[row_indexs], normalize='standardize')
                     mu, var = model.predict(X)
                     cached_mu_list.append(mu)
                     cached_var_list.append(var)
@@ -59,7 +62,7 @@ class RGPE(BaseFacade):
                     if (y[row_indexs] == y[row_indexs[0]]).all():
                         y[row_indexs[0]] += 1e-4
 
-                    model = self.build_single_surrogate(X[row_indexs, :], y[row_indexs])
+                    model = self.build_single_surrogate(X[row_indexs, :], y[row_indexs], normalize='standardize')
                     mu, var = model.predict(X)
                     cached_mu_list.append(mu)
                     cached_var_list.append(var)
@@ -113,6 +116,19 @@ class RGPE(BaseFacade):
         for id in range(self.K):
             median = sorted(ranking_loss_caches[:, id])[int(self.num_sample * 0.5)]
             self.ignored_flag[id] = median > threshold
+
+        # self.w[:-1] = self.w[:-1]/np.sum(self.w[:-1])
+        # self.w[-1] = 0.
+        print('=' * 20)
+        w = self.w.copy()
+        for id in range(self.K):
+            if self.ignored_flag[id]:
+                w[id] = 0.
+        weight_str = ','.join([('%.2f' % item) for item in w])
+        print('In iter-%d' % self.iteration_id)
+        print(weight_str)
+        self.hist_ws.append(w)
+        self.iteration_id += 1
 
     def predict(self, X: np.array):
         mu, var = self.target_surrogate.predict(X)
