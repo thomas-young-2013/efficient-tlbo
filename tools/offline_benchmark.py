@@ -15,6 +15,7 @@ parser.add_argument('--algo_id', type=str, default='random_forest')
 parser.add_argument('--methods', type=str, default='rgpe')
 parser.add_argument('--surrogate_type', type=str, default='rf')
 parser.add_argument('--trial_num', type=int, default=50)
+parser.add_argument('--init_num', type=int, default=0)
 parser.add_argument('--problem_num', type=int, default=-1)
 parser.add_argument('--num_source_data', type=int, default=50)
 parser.add_argument('--num_target_data', type=int, default=1000)
@@ -25,11 +26,19 @@ surrogate_type = args.surrogate_type
 n_src_data = args.num_source_data
 n_target_data = args.num_target_data
 trial_num = args.trial_num
+init_num = args.init_num
 problem_num = args.problem_num
 baselines = args.methods.split(',')
 data_dir = 'data/hpo_data/'
 exp_dir = 'data/exp_results/'
 
+
+if init_num > 0:
+    enable_init_design = True
+else:
+    enable_init_design = False
+    # Default number of random configurations.
+    init_num = 3
 
 algorithms = ['lightgbm', 'random_forest', 'linear', 'adaboost', 'lda']
 algo_str = '|'.join(algorithms)
@@ -101,6 +110,8 @@ if __name__ == "__main__":
                                 source_hpo_data=source_hpo_data,
                                 num_src_hpo_trial=n_src_data,
                                 surrogate_type=surrogate_type,
+                                enable_init_design=enable_init_design,
+                                initial_runs=init_num,
                                 acq_func='ei')
             result = list()
             for _ in range(trial_num):

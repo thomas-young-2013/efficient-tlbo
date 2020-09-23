@@ -10,7 +10,7 @@ class ES(BaseFacade):
                          surrogate_type=surrogate_type, num_src_hpo_trial=num_src_hpo_trial)
         self.method_id = 'es'
         self.fusion_method = fusion_method
-        self.build_source_surrogates(normalize='scale')
+        self.build_source_surrogates(normalize='standardize')
         # Weights for base surrogates and the target surrogate.
         self.w = np.array([1. / self.K] * self.K + [0.])
         self.ensemble_size = 100
@@ -51,7 +51,7 @@ class ES(BaseFacade):
     def train(self, X: np.ndarray, y: np.array):
         instance_num = X.shape[0]
         # Build the target surrogate.
-        self.target_surrogate = self.build_single_surrogate(X, y, normalize='scale')
+        self.target_surrogate = self.build_single_surrogate(X, y, normalize='standardize')
         self.target_y_range = 0.5 * (np.max(y) - np.min(y))
         print('Target y range', self.target_y_range)
 
@@ -114,7 +114,7 @@ class ES(BaseFacade):
         for train_idx, val_idx in kf.split(X):
             idxs.extend(list(val_idx))
             X_train, X_val, y_train, y_val = X[train_idx,:], X[val_idx,:], y[train_idx], y[val_idx]
-            model = self.build_single_surrogate(X_train, y_train, normalize='scale')
+            model = self.build_single_surrogate(X_train, y_train, normalize='standardize')
             mu, var = model.predict(X_val)
             mu, var = mu.flatten(), var.flatten()
             _mu.extend(list(mu))
@@ -191,7 +191,10 @@ class ES(BaseFacade):
     def predict(self, X: np.array):
         w = self.w.copy()
         # w = np.mean(self.hist_ws[-3:], axis=0)
-        mu, var = self.target_surrogate.predict(X)
+        if self.target_surrogate is not None:
+            mu, var = self.target_surrogate.predict(X)
+        else:
+            mu, var = np.zeros((X.shape[0], 1)), np.zeros((X.shape[0], 1))
         # Target surrogate predictions with weight.
         mu *= w[-1]
         var *= (w[-1] * w[-1])

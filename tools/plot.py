@@ -93,8 +93,9 @@ def get_mean_ranking(adtm_dict, idx, num_ranking):
         for method in adtm_dict.keys():
             ranking_dict[method].append(
                 (_rank_dict[method] * 2 + counter[_rank_dict[method]] - 1) / 2)
-    ranking_dict = {method: np.mean(ranking_dict[method]) for method in ranking_dict.keys()}
-    return ranking_dict
+    mean_dict = {method: np.mean(ranking_dict[method]) for method in ranking_dict.keys()}
+    std_dict = {method: np.std(ranking_dict[method]) for method in ranking_dict.keys()}
+    return mean_dict, std_dict
 
 
 if __name__ == "__main__":
@@ -121,7 +122,9 @@ if __name__ == "__main__":
                 x = list(range(len(array[1])))
                 if plot_type == 'adtm':
                     y = array[1][:, 1]
-                    print(x, y)
+                    print(array[0].shape)
+                    print(method, np.std(array[0], axis=0)[:, 1])
+                    # print(x, y)
                     ax.plot(x, y, lw=lw,
                             label=label_name, color=color_dict[method],
                             marker=marker_dict[method], markersize=ms, markevery=me
@@ -136,16 +139,20 @@ if __name__ == "__main__":
 
             if plot_type == 'ranking':
                 ranking_dict = {method: [] for method in adtm_dict.keys()}
+                ranking_std_dict = {method: [] for method in adtm_dict.keys()}
                 for idx in range(len(x)):
-                    mean_ranking_dict = get_mean_ranking(adtm_dict, idx, num_ranking)
+                    mean_ranking_dict, std_ranking_dict = get_mean_ranking(adtm_dict, idx, num_ranking)
                     for method in adtm_dict.keys():
                         ranking_dict[method].append(mean_ranking_dict[method])
+                        ranking_std_dict[method].append(std_ranking_dict[method])
                 for method in adtm_dict.keys():
                     label_name = r'\textbf{%s}' % (method.upper().replace('_', '-'))
                     ax.plot(x, ranking_dict[method], lw=lw,
                             label=label_name, color=color_dict[method],
                             marker=marker_dict[method], markersize=ms, markevery=me
                             )
+                    print('=' * 20)
+                    print(method, ranking_std_dict[method])
                     line = mlines.Line2D([], [], color=color_dict[method], marker=marker_dict[method],
                                          markersize=ms, label=label_name)
                     handles.append(line)
