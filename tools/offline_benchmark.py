@@ -31,7 +31,7 @@ data_dir = 'data/hpo_data/'
 exp_dir = 'data/exp_results/'
 
 
-algorithms = ['lightgbm', 'random_forest', 'linear']
+algorithms = ['lightgbm', 'random_forest', 'linear', 'adaboost', 'lda']
 algo_str = '|'.join(algorithms)
 pattern = '(.*)-(%s)-(\d+).pkl' % algo_str
 
@@ -66,7 +66,7 @@ if __name__ == "__main__":
     from tlbo.config_space.space_instance import get_configspace_instance
     algo_name = 'liblinear_svc' if algo_id == 'linear' else algo_id
     config_space = get_configspace_instance(algo_id=algo_name)
-    np.random.seed(5)
+    np.random.seed(42)
     seeds = np.random.randint(low=1, high=10000, size=len(hpo_ids))
     p_num = len(hpo_ids) if problem_num == -1 else problem_num
 
@@ -74,7 +74,7 @@ if __name__ == "__main__":
         exp_results = list()
         for id in range(p_num):
             print('=' * 20)
-            print('Evaluate %d-th problem - %s.' % (id + 1, hpo_ids[id]))
+            print('[%s-%s] Evaluate %d-th problem - %s.' % (algo_id, mth, id + 1, hpo_ids[id]))
             start_time = time.time()
             # Generate the source and target hpo data.
             target_hpo_data = hpo_data[id]
@@ -121,7 +121,7 @@ if __name__ == "__main__":
                 print(weight_str)
                 print('Weight stats.')
                 print(trans(np.mean(weights, axis=0)))
-                source_ids = [item[0] for item in enumerate(list(np.mean(weights, axis=0))) if item[1] != 0]
+                source_ids = [item[0] for item in enumerate(list(np.mean(weights, axis=0))) if item[1] >= 1e-2]
                 print('Source problems used', source_ids)
 
         if problem_num == -1:

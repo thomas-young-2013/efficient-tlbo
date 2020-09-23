@@ -3,6 +3,7 @@ from ConfigSpace.hyperparameters import UniformFloatHyperparameter, \
     CategoricalHyperparameter, Constant, UnParametrizedHyperparameter, UniformIntegerHyperparameter
 from ConfigSpace.forbidden import ForbiddenEqualsClause, \
     ForbiddenAndConjunction
+from ConfigSpace.conditions import EqualsCondition
 
 
 def get_configspace_instance(algo_id='random_forest'):
@@ -76,6 +77,25 @@ def get_configspace_instance(algo_id='random_forest'):
         colsample_bytree = UniformFloatHyperparameter("colsample_bytree", 0.7, 1, default_value=1, q=0.1)
         cs.add_hyperparameters([n_estimators, num_leaves, max_depth, learning_rate, min_child_samples, subsample,
                                 colsample_bytree])
+    elif algo_id == 'adaboost':
+        n_estimators = UniformIntegerHyperparameter(
+            name="n_estimators", lower=50, upper=500, default_value=50, log=False)
+        learning_rate = UniformFloatHyperparameter(
+            name="learning_rate", lower=0.01, upper=2, default_value=0.1, log=True)
+        algorithm = CategoricalHyperparameter(
+            name="algorithm", choices=["SAMME.R", "SAMME"], default_value="SAMME.R")
+        max_depth = UniformIntegerHyperparameter(
+            name="max_depth", lower=2, upper=8, default_value=3, log=False)
+        cs.add_hyperparameters([n_estimators, learning_rate, algorithm, max_depth])
+    elif algo_id == 'lda':
+        shrinkage = CategoricalHyperparameter(
+            "shrinkage", ["None", "auto", "manual"], default_value="None")
+        shrinkage_factor = UniformFloatHyperparameter(
+            "shrinkage_factor", 0., 1., 0.5)
+        n_components = UniformIntegerHyperparameter('n_components', 1, 250, default_value=10)
+        tol = UniformFloatHyperparameter("tol", 1e-5, 1e-1, default_value=1e-4, log=True)
+        cs.add_hyperparameters([shrinkage, shrinkage_factor, n_components, tol])
+        cs.add_condition(EqualsCondition(shrinkage_factor, shrinkage, "manual"))
     else:
         raise ValueError('Invalid algorithm - %s' % algo_id)
     return cs
