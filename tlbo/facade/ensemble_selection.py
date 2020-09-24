@@ -10,7 +10,7 @@ class ES(BaseFacade):
                          surrogate_type=surrogate_type, num_src_hpo_trial=num_src_hpo_trial)
         self.method_id = 'es'
         self.fusion_method = fusion_method
-        self.build_source_surrogates(normalize='scale')
+        self.build_source_surrogates(normalize='standardize')
         # Weights for base surrogates and the target surrogate.
         self.w = np.array([1. / self.K] * self.K + [0.])
         self.ensemble_size = 100
@@ -51,7 +51,7 @@ class ES(BaseFacade):
     def train(self, X: np.ndarray, y: np.array):
         instance_num = X.shape[0]
         # Build the target surrogate.
-        self.target_surrogate = self.build_single_surrogate(X, y, normalize='none')
+        self.target_surrogate = self.build_single_surrogate(X, y, normalize='standardize')
         self.target_y_range = 0.5 * (np.max(y) - np.min(y))
         print('Target y range', self.target_y_range)
 
@@ -87,6 +87,8 @@ class ES(BaseFacade):
         if instance_num >= self.min_num_y:
             # w_t = self.calculate_target_weight(X, y)
             w_target = self.calculate_weight_by_sampling(X, y)
+            if instance_num >= 2 * self.min_num_y:
+                w_target = np.max([w_target, self.w[-1]])
             w_source *= (1 - w_target)
         w_new = np.asarray(list(w_source) + [w_target])
         rho = 0.6
@@ -112,7 +114,7 @@ class ES(BaseFacade):
         for train_idx, val_idx in kf.split(X):
             idxs.extend(list(val_idx))
             X_train, X_val, y_train, y_val = X[train_idx,:], X[val_idx,:], y[train_idx], y[val_idx]
-            model = self.build_single_surrogate(X_train, y_train, normalize='none')
+            model = self.build_single_surrogate(X_train, y_train, normalize='standardize')
             mu, var = model.predict(X_val)
             mu, var = mu.flatten(), var.flatten()
             _mu.extend(list(mu))
@@ -165,16 +167,18 @@ class ES(BaseFacade):
 
         surrogate_idx = list()
         _K = len(surrogate_ids)
-        kfold = KFold(n_splits=5)
-        n_val = len(list(kfold.split(X))[-1][0])
-        start_idx = X.shape[0] - n_val - 1
+        # kfold = KFold(n_splits=5)
+        # n_val = len(list(kfold.split(X))[-1][0])
+        # start_idx = X.shape[0] - n_val - 100
+        # start_idx = 0
 
         for _ in range(self.ensemble_size):
             loss_list = list()
             for i in range(_K):
                 _mu, _var = surrogate_preds[i]
                 y_pred = np.random.normal(_mu, _var)
-                loss_list.append(self.calculate_generalization_ranking_loss(y_pred, y, start_idx))
+                # loss_list.append(self.calculate_generalization_ranking_loss(y_pred, y, start_idx))
+                loss_list.append(self.calculate_ranking_loss(y_pred, y))
             argmin_idx = np.argmin(loss_list)
             surrogate_idx.append(argmin_idx)
 
@@ -187,7 +191,10 @@ class ES(BaseFacade):
     def predict(self, X: np.array):
         w = self.w.copy()
         # w = np.mean(self.hist_ws[-3:], axis=0)
-        mu, var = self.target_surrogate.predict(X)
+        if self.target_surrogate is not None:
+            mu, var = self.target_surrogate.predict(X)
+        else:
+            mu, var = np.zeros((X.shape[0], 1)), np.zeros((X.shape[0], 1))
         # Target surrogate predictions with weight.
         mu *= w[-1]
         var *= (w[-1] * w[-1])

@@ -15,6 +15,7 @@ parser.add_argument('--algo_id', type=str, default='random_forest')
 parser.add_argument('--methods', type=str, default='rgpe')
 parser.add_argument('--surrogate_type', type=str, default='rf')
 parser.add_argument('--trial_num', type=int, default=50)
+parser.add_argument('--init_num', type=int, default=0)
 parser.add_argument('--problem_num', type=int, default=-1)
 parser.add_argument('--num_source_data', type=int, default=50)
 parser.add_argument('--num_target_data', type=int, default=1000)
@@ -25,13 +26,21 @@ surrogate_type = args.surrogate_type
 n_src_data = args.num_source_data
 n_target_data = args.num_target_data
 trial_num = args.trial_num
+init_num = args.init_num
 problem_num = args.problem_num
 baselines = args.methods.split(',')
 data_dir = 'data/hpo_data/'
 exp_dir = 'data/exp_results/'
 
 
-algorithms = ['lightgbm', 'random_forest', 'linear']
+if init_num > 0:
+    enable_init_design = True
+else:
+    enable_init_design = False
+    # Default number of random configurations.
+    init_num = 3
+
+algorithms = ['lightgbm', 'random_forest', 'linear', 'adaboost', 'lda']
 algo_str = '|'.join(algorithms)
 pattern = '(.*)-(%s)-(\d+).pkl' % algo_str
 
@@ -66,7 +75,7 @@ if __name__ == "__main__":
     from tlbo.config_space.space_instance import get_configspace_instance
     algo_name = 'liblinear_svc' if algo_id == 'linear' else algo_id
     config_space = get_configspace_instance(algo_id=algo_name)
-    np.random.seed(5)
+    np.random.seed(42)
     seeds = np.random.randint(low=1, high=10000, size=len(hpo_ids))
     p_num = len(hpo_ids) if problem_num == -1 else problem_num
 
@@ -74,7 +83,7 @@ if __name__ == "__main__":
         exp_results = list()
         for id in range(p_num):
             print('=' * 20)
-            print('Evaluate %d-th problem - %s.' % (id + 1, hpo_ids[id]))
+            print('[%s-%s] Evaluate %d-th problem - %s.' % (algo_id, mth, id + 1, hpo_ids[id]))
             start_time = time.time()
             # Generate the source and target hpo data.
             target_hpo_data = hpo_data[id]
@@ -101,6 +110,8 @@ if __name__ == "__main__":
                                 source_hpo_data=source_hpo_data,
                                 num_src_hpo_trial=n_src_data,
                                 surrogate_type=surrogate_type,
+                                enable_init_design=enable_init_design,
+                                initial_runs=init_num,
                                 acq_func='ei')
             result = list()
             for _ in range(trial_num):
@@ -121,7 +132,7 @@ if __name__ == "__main__":
                 print(weight_str)
                 print('Weight stats.')
                 print(trans(np.mean(weights, axis=0)))
-                source_ids = [item[0] for item in enumerate(list(np.mean(weights, axis=0))) if item[1] != 0]
+                source_ids = [item[0] for item in enumerate(list(np.mean(weights, axis=0))) if item[1] >= 1e-2]
                 print('Source problems used', source_ids)
 
         if problem_num == -1:

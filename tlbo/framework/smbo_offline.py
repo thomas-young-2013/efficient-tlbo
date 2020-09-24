@@ -40,15 +40,6 @@ class SMBO_OFFLINE(BasePipeline):
         self.num_src_hpo_trial = num_src_hpo_trial
         self.surrogate_type = surrogate_type
         self.acq_func = acq_func
-        if enable_init_design:
-            self.initial_configurations = self.initial_design(initial_runs)
-        else:
-            self.initial_configurations = None
-
-        if self.initial_configurations is None:
-            self.init_num = initial_runs
-        else:
-            self.init_num = len(self.initial_configurations)
 
         self.max_iterations = max_runs
         self.iteration_id = 0
@@ -59,6 +50,16 @@ class SMBO_OFFLINE(BasePipeline):
         self.configurations = list()
         self.failed_configurations = list()
         self.perfs = list()
+
+        if enable_init_design:
+            self.initial_configurations = self.initial_design(initial_runs)
+        else:
+            self.initial_configurations = None
+
+        if self.initial_configurations is None:
+            self.init_num = initial_runs
+        else:
+            self.init_num = len(self.initial_configurations)
 
         # Initialize the basic component in BO.
         self.config_space.seed(self.random_seed)
