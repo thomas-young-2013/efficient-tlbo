@@ -15,7 +15,7 @@ from litebo.facade.bo_facade import BayesianOptimization as BO
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--datasets', type=str)
-parser.add_argument('--n', type=int, default=1000)
+parser.add_argument('--n', type=int, default=10000)
 
 args = parser.parse_args()
 dataset_str = args.datasets
@@ -181,6 +181,10 @@ class ExtraTreesClassifier:
 dataset_list = dataset_str.split(',')
 check_datasets(dataset_list)
 cs = get_cs()
+
+run_count = min(int(len(set(cs.sample_configuration(20000))) * 0.75), run_count)
+print(run_count)
+
 
 for dataset in dataset_list:
     node = load_data(dataset, '../soln-ml/', True, task_type=0)
