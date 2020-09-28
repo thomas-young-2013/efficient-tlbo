@@ -18,7 +18,7 @@ parser.add_argument('--trial_num', type=int, default=50)
 parser.add_argument('--init_num', type=int, default=0)
 parser.add_argument('--problem_num', type=int, default=-1)
 parser.add_argument('--num_source_data', type=int, default=50)
-parser.add_argument('--num_target_data', type=int, default=1000)
+parser.add_argument('--num_target_data', type=int, default=10000)
 args = parser.parse_args()
 algo_id = args.algo_id
 task_id = args.task_id
@@ -40,7 +40,7 @@ else:
     # Default number of random configurations.
     init_num = 3
 
-algorithms = ['lightgbm', 'random_forest', 'linear', 'adaboost', 'lda']
+algorithms = ['lightgbm', 'random_forest', 'linear', 'adaboost', 'lda', 'extra_trees']
 algo_str = '|'.join(algorithms)
 pattern = '(.*)-(%s)-(\d+).pkl' % algo_str
 
