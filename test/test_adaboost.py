@@ -15,7 +15,7 @@ from litebo.facade.bo_facade import BayesianOptimization as BO
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--datasets', type=str)
-parser.add_argument('--n', type=int, default=1000)
+parser.add_argument('--n', type=int, default=10000)
 
 args = parser.parse_args()
 dataset_str = args.datasets
@@ -130,11 +130,14 @@ dataset_list = dataset_str.split(',')
 check_datasets(dataset_list)
 cs = get_cs()
 
+_run_count = min(int(len(set(cs.sample_configuration(20000))) * 0.75), run_count)
+print(_run_count)
+
 for dataset in dataset_list:
     node = load_data(dataset, '../soln-ml/', True, task_type=0)
     _x, _y = node.data[0], node.data[1]
     eval = partial(eval_func, x=_x, y=_y)
-    bo = BO(eval, cs, max_runs=run_count, time_limit_per_trial=600, rng=np.random.RandomState(1))
+    bo = BO(eval, cs, max_runs=_run_count, time_limit_per_trial=600, rng=np.random.RandomState(1))
     bo.run()
     with open('logs/%s-adaboost-%d.pkl' % (dataset, run_count), 'wb')as f:
         pickle.dump(bo.get_history().data, f)
