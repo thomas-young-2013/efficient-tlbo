@@ -72,7 +72,11 @@ if __name__ == "__main__":
     from tlbo.facade.rgpe import RGPE
     from tlbo.facade.ensemble_selection import ES
     from tlbo.facade.random_surrogate import RandomSearch
+    from tlbo.facade.tst import TST
+    from tlbo.facade.pogpe import POGPE
+    from tlbo.facade.stacking_gpr import SGPR
     from tlbo.config_space.space_instance import get_configspace_instance
+
     algo_name = 'liblinear_svc' if algo_id == 'linear' else algo_id
     config_space = get_configspace_instance(algo_id=algo_name)
     np.random.seed(42)
@@ -98,6 +102,12 @@ if __name__ == "__main__":
                 surrogate_class = NoTL
             elif mth == 'es':
                 surrogate_class = ES
+            elif mth == 'tst':
+                surrogate_class = TST
+            elif mth == 'pogpe':
+                surrogate_class = POGPE
+            elif mth == 'sgpr':
+                surrogate_class = SGPR
             elif mth == 'rs':
                 surrogate_class = RandomSearch
             else:

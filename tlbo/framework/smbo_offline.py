@@ -4,6 +4,7 @@ from typing import List, Dict
 from tlbo.model.util_funcs import get_rng, get_types
 from tlbo.acquisition_function.acquisition import EI
 from tlbo.config_space import Configuration, ConfigurationSpace
+from tlbo.facade.notl import NoTL
 from tlbo.optimizer.ei_offline_optimizer import OfflineSearch
 from tlbo.optimizer.random_configuration_chooser import ChooserProb
 from tlbo.config_space.util import convert_configurations_to_array
@@ -47,6 +48,7 @@ class SMBO_OFFLINE(BasePipeline):
 
         self.target_hpo_measurements = target_hpo_data
         self.configuration_list = list(self.target_hpo_measurements.keys())
+        print('Target problem space: %d configurations' % len(self.configuration_list))
         self.configurations = list()
         self.failed_configurations = list()
         self.perfs = list()
@@ -89,12 +91,17 @@ class SMBO_OFFLINE(BasePipeline):
         self.y_max, self.y_min = np.max(self.ys), np.min(self.ys)
 
     def get_adtm(self):
-        y_inc = np.min(self.perfs)
+        y_inc = self.get_inc_y()
         assert self.y_max != self.y_min
         return (y_inc - self.y_min) / (self.y_max - self.y_min)
 
     def get_inc_y(self):
-        return np.min(self.perfs)
+        if isinstance(self.model, NoTL):
+            _perfs = [_perf for (_, _perf) in list(self.target_hpo_measurements.items())[:self.iteration_id]]
+            y_inc = np.min(_perfs)
+        else:
+            y_inc = np.min(self.perfs)
+        return y_inc
 
     def run(self):
         while self.iteration_id < self.max_iterations:
