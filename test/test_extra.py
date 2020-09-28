@@ -184,7 +184,7 @@ dataset_list = dataset_str.split(',')
 check_datasets(dataset_list)
 cs = get_cs()
 
-_run_count = min(int(len(set(cs.sample_configuration(20000))) * 0.75), run_count)
+_run_count = min(int(len(set(cs.sample_configuration(30000))) * 0.75), run_count)
 print(_run_count)
 
 for dataset in dataset_list:
