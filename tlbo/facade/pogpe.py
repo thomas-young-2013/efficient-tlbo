@@ -10,6 +10,7 @@ class POGPE(BaseFacade):
         self.method_id = 'pogpe'
         self.build_source_surrogates(normalize='scale')
 
+        self.w = np.array([0.5/self.K] * self.K + [0.5])
         # Preventing weight dilution.
         self.hist_ws = list()
         self.iteration_id = 0

@@ -60,6 +60,12 @@ def fetch_color_marker(m_list):
             fill_values(name, 2)
         elif name.startswith('rs'):
             fill_values(name, 3)
+        elif name.startswith('tst'):
+            fill_values(name, 4)
+        elif name.startswith('pogpe'):
+            fill_values(name, 5)
+        elif name.startswith('sgpr'):
+            fill_values(name, 6)
         else:
             print(name)
             fill_values(name, 7)
