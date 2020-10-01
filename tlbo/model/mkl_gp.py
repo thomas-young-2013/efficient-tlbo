@@ -41,7 +41,7 @@ class MKLGaussianProcess(BaseModel):
             f_var = self.kernel.get_kernel_value(x, x) - np.dot(v, v)
             res_mean.append(f_mean)
             res_var.append(f_var)
-        return np.array(res_mean), np.array(res_var)
+        return np.array(res_mean).reshape(-1, 1), np.array(res_var).reshape(-1, 1)
 
     def get_negative_log_likelihodd(self):
         log_determinant = 0.

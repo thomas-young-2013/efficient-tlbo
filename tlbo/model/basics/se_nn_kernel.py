@@ -23,7 +23,7 @@ class SENNKernel(object):
         self.lookup = dict()
         for i in range(size):
             id = str(metafeatures[i])
-            indexs = np.argsort(metafeatures[i])[:self.max_nn]
+            indexs = np.argsort(dist_m[i])[:self.max_nn]
             self.lookup[id] = set()
             for index in indexs:
                 self.lookup[id].add(str(metafeatures[index]))

@@ -45,7 +45,7 @@ class SCoT(BaseFacade):
         _X = np.c_[X, meta_vec]
         _X = np.r_[self.X, _X]
         _y = np.c_[y, np.array([self.K] * num_sample)]
-        _y = np.r_[self.y, y]
+        _y = np.r_[self.y, _y]
         rank_svm = RankSVM()
         rank_svm.fit(_X, _y)
         pred_y = rank_svm.predict(_X)

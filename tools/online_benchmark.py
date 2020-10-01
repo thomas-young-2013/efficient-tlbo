@@ -5,6 +5,7 @@ import time
 import pickle
 import argparse
 import numpy as np
+from collections import OrderedDict
 
 sys.path.append(os.getcwd())
 from tlbo.framework.smbo_offline import SMBO_OFFLINE
@@ -63,9 +64,8 @@ def load_hpo_history():
     for _file in sorted(os.listdir(data_dir)):
         if _file.endswith('.pkl') and _file.find(algo_id) != -1:
             result = re.search(pattern, _file, re.I)
-            if result is None:
-                continue
             dataset_id, algo_name, total_trial_num = result.group(1), result.group(2), result.group(3)
+            # print(dataset_id, algo_name, total_trial_num)
             if int(total_trial_num) != n_target_data:
                 continue
             with open(data_dir + _file, 'rb') as f:
@@ -85,24 +85,11 @@ def load_hpo_history():
         with open(_file, 'rb') as f:
             data = pickle.load(f)
             random_hpo_data.append(data)
-
-    print('Load meta-features for each dataset.')
-    with open(data_dir + 'dataset_metafeatures.pkl', 'rb') as f:
-        dataset_info = pickle.load(f)
-        dataset_ids = [item for item in dataset_info['task_ids']]
-        dataset_meta_features = list(dataset_info['dataset_embedding'])
-        meta_features_dict = dict(zip(dataset_ids, dataset_meta_features))
-
-    meta_features = list()
-    for hpo_id in source_hpo_ids:
-        assert hpo_id in dataset_ids
-        meta_features.append(np.array(meta_features_dict[hpo_id], dtype=np.float64))
-
-    return source_hpo_ids, source_hpo_data, random_hpo_data, meta_features
+    return source_hpo_ids, source_hpo_data, random_hpo_data
 
 
 if __name__ == "__main__":
-    hpo_ids, hpo_data, random_test_data, meta_features = load_hpo_history()
+    hpo_ids, hpo_data, random_test_data = load_hpo_history()
     algo_name = 'liblinear_svc' if algo_id == 'linear' else algo_id
     config_space = get_configspace_instance(algo_id=algo_name)
     np.random.seed(42)
@@ -112,31 +99,18 @@ if __name__ == "__main__":
 
     for mth in baselines:
         exp_results = list()
+        source_hpo_data = list()
         for id in range(run_num):
             print('=' * 20)
             print('[%s-%s] Evaluate %d-th problem - %s.' % (algo_id, mth, id + 1, hpo_ids[id]))
+            print('In %d-th problem: %s' % (id, hpo_ids[id]), '#source problem = %d.' % len(source_hpo_data))
             start_time = time.time()
 
-            # Generate the source and target hpo data.
-            # target_hpo_data = hpo_data[id]
-            dataset_meta_features = list()
+            # Set target hpo data.
             target_hpo_data = random_test_data[id]
-            source_hpo_data = list()
-            for _id, data in enumerate(hpo_data):
-                if _id != id:
-                    source_hpo_data.append(data)
-                    dataset_meta_features.append(meta_features[_id])
 
             # Random seed.
             seed = seeds[id]
-            # Select a subset of source problems to transfer.
-            rng = np.random.RandomState(seed)
-            shuffled_ids = np.arange(len(source_hpo_data))
-            rng.shuffle(shuffled_ids)
-            source_hpo_data = [source_hpo_data[id] for id in shuffled_ids[:num_source_problem]]
-            dataset_meta_features = [dataset_meta_features[id] for id in shuffled_ids[:num_source_problem]]
-            # Add the meta-features in the target problem.
-            dataset_meta_features.append(meta_features[id])
 
             if mth == 'rgpe':
                 surrogate_class = RGPE
@@ -158,15 +132,9 @@ if __name__ == "__main__":
                 surrogate_class = RandomSearch
             else:
                 raise ValueError('Invalid baseline name - %s.' % mth)
-            if mth not in ['mklgp', 'scot']:
-                surrogate = surrogate_class(config_space, source_hpo_data, target_hpo_data, seed,
-                                            surrogate_type=surrogate_type,
-                                            num_src_hpo_trial=n_src_data)
-            else:
-                surrogate = surrogate_class(config_space, source_hpo_data, target_hpo_data, seed,
-                                            surrogate_type=surrogate_type,
-                                            num_src_hpo_trial=n_src_data, metafeatures=dataset_meta_features)
-
+            surrogate = surrogate_class(config_space, source_hpo_data, target_hpo_data, seed,
+                                        surrogate_type=surrogate_type,
+                                        num_src_hpo_trial=n_src_data)
             smbo = SMBO_OFFLINE(target_hpo_data, config_space, surrogate,
                                 random_seed=seed, max_runs=trial_num,
                                 source_hpo_data=source_hpo_data,
@@ -176,6 +144,7 @@ if __name__ == "__main__":
                                 initial_runs=init_num,
                                 acq_func='ei')
             result = list()
+            hpo_result = OrderedDict()
             for _ in range(trial_num):
                 config, _, perf, _ = smbo.iterate()
                 # print(config, perf)
@@ -183,7 +152,12 @@ if __name__ == "__main__":
                 adtm, y_inc = smbo.get_adtm(), smbo.get_inc_y()
                 # print('%.3f - %.3f' % (adtm, y_inc))
                 result.append([adtm, y_inc, time_taken])
+                hpo_result[config] = perf
             exp_results.append(result)
+
+            # Add this runhistory to source hpo data.
+            source_hpo_data.append(hpo_result)
+
             print('In %d-th problem: %s' % (id, hpo_ids[id]), 'adtm, y_inc', result[-1])
             print('min/max', smbo.y_min, smbo.y_max)
             print('mean,std', np.mean(smbo.ys), np.std(smbo.ys))
@@ -198,7 +172,7 @@ if __name__ == "__main__":
                 print('Source problems used', source_ids)
 
         if run_num == -1:
-            mth_file = '%s_%s_%d_%d_%s_%s.pkl' % (mth, algo_id, n_src_data, trial_num, surrogate_type, task_id)
+            mth_file = 'online_%s_%s_%d_%d_%s_%s.pkl' % (mth, algo_id, n_src_data, trial_num, surrogate_type, task_id)
             with open(exp_dir + mth_file, 'wb') as f:
                 data = [np.array(exp_results), np.mean(exp_results, axis=0)]
                 pickle.dump(data, f)
