@@ -41,6 +41,10 @@ class BaseFacade(object):
         self.w = None
         self.eta_list = list()
 
+        # meta features.
+        self.meta_feature_scaler = None
+        self.meta_feature_imputer = None
+
     @abc.abstractmethod
     def train(self, X: np.ndarray, y: np.ndarray):
         pass
@@ -182,3 +186,18 @@ class BaseFacade(object):
             return mu.reshape(-1, 1), var.reshape(-1, 1)
         else:
             raise ValueError('Invalid combination method %s.' % combination_method)
+
+    def scale_fit_meta_features(self, meta_features):
+        from sklearn.preprocessing import MinMaxScaler, Imputer
+        meta_features = np.array(meta_features)
+        self.meta_feature_imputer = Imputer(missing_values='NaN', strategy='mean', axis=0)
+        self.meta_feature_imputer.fit(meta_features)
+        meta_features = self.meta_feature_imputer.transform(meta_features)
+        self.meta_feature_scaler = MinMaxScaler()
+        self.meta_feature_scaler.fit(meta_features)
+        return self.meta_feature_scaler.transform(meta_features)
+
+    def scale_transform_meta_features(self, meta_feature):
+        _meta_features = np.array([meta_feature])
+        _meta_feature = self.meta_feature_imputer.transform(_meta_features)
+        return self.meta_feature_scaler.transform(_meta_feature)

@@ -11,13 +11,13 @@ class MKLGP(BaseFacade):
         super().__init__(config_space, source_hpo_data, seed, target_hp_configs,
                          surrogate_type=surrogate_type, num_src_hpo_trial=num_src_hpo_trial)
         self.method_id = 'mklgp'
-        self.metafeatures = metafeatures
         if metafeatures is None:
             raise ValueError('SCoT needs meta-features about the datasets.')
         else:
             assert len(metafeatures) == (self.K + 1)
-
+        self.metafeatures = self.scale_fit_meta_features(metafeatures)
         self.X, self.y = None, None
+
         for i, hpo_evaluation_data in enumerate(self.source_hpo_data):
             _X, _y = list(), list()
             for _config, _config_perf in hpo_evaluation_data.items():
@@ -31,7 +31,7 @@ class MKLGP(BaseFacade):
                 y[0] += 1e-5
             y, _, _ = zero_mean_unit_var_normalization(y)
 
-            meta_vec = np.array([list(metafeatures[i]) for _ in range(len(y))])
+            meta_vec = np.array([list(self.metafeatures[i]) for _ in range(len(y))])
             X = np.c_[X, meta_vec]
 
             if self.X is not None:
@@ -40,7 +40,7 @@ class MKLGP(BaseFacade):
             else:
                 self.X, self.y = X, y
 
-        self.target_surrogate = MKLGaussianProcess(metafeatures)
+        self.target_surrogate = MKLGaussianProcess(self.metafeatures)
         self.iteration_id = 0
 
     def train(self, X: np.ndarray, y: np.array):

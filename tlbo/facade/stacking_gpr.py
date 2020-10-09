@@ -19,6 +19,7 @@ class SGPR(BaseFacade):
         self.cached_stacking_sigma = None
         self.prior_size = 0
         self.iteration_id = 0
+        self.index_mapper = dict()
         self.get_regressor()
 
     def get_regressor(self):
@@ -37,6 +38,9 @@ class SGPR(BaseFacade):
         # Initialize mu and sigma vector.
         num_configs = len(configs_list)
         self.configs_set = configs_list
+        for _idx, _config in enumerate(configs_list):
+            self.index_mapper[str(_config)] = _idx
+
         self.cached_prior_mu = np.zeros(num_configs)
         self.cached_prior_sigma = np.ones(num_configs)
         self.cached_stacking_mu = np.zeros(num_configs)
@@ -62,14 +66,13 @@ class SGPR(BaseFacade):
         model.train(X, y)
 
         # Get prior mu and sigma for configs in X.
-        prior_mu = list()
-        prior_sigma = list()
+        idxs = list()
         for item in X:
-            index = self.configs_set.index(list(item))
-            prior_mu.append(self.cached_prior_mu[index])
-            prior_sigma.append(self.cached_prior_sigma[index])
+            # index = self.configs_set.index(list(item))
+            index = self.index_mapper[list(item)]
+            idxs.append(index)
+        prior_mu, prior_sigma = self.cached_prior_mu[idxs], self.cached_prior_sigma[idxs]
         prior_mu = np.array(prior_mu)
-        prior_sigma = np.array(prior_sigma)
 
         # Training residual GP.
         model.train(X, y - prior_mu)
@@ -106,10 +109,11 @@ class SGPR(BaseFacade):
         self.iteration_id += 1
 
     def predict(self, X: np.array):
-        mu_list, var_list = list(), list()
+        index_list = list()
         for x in X:
-            assert list(x) in self.configs_set
-            index = self.configs_set.index(list(x))
-            mu_list.append(self.cached_stacking_mu[index])
-            var_list.append(self.cached_stacking_sigma[index])
+            # index = self.configs_set.index(list(x))
+            index = self.index_mapper[list(x)]
+            index_list.append(index)
+
+        mu_list, var_list = self.cached_stacking_mu[index_list], self.cached_stacking_sigma[index_list]
         return np.array(mu_list).reshape(-1, 1), np.array(var_list).reshape(-1, 1)

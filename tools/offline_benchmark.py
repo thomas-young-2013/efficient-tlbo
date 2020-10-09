@@ -5,12 +5,14 @@ import time
 import pickle
 import argparse
 import numpy as np
+from collections import OrderedDict
 
 sys.path.append(os.getcwd())
 from tlbo.framework.smbo_offline import SMBO_OFFLINE
 from tlbo.facade.notl import NoTL
 from tlbo.facade.rgpe import RGPE
 from tlbo.facade.ensemble_selection import ES
+from tlbo.facade.obtl import OBTL
 from tlbo.facade.random_surrogate import RandomSearch
 from tlbo.facade.tst import TST
 from tlbo.facade.pogpe import POGPE
@@ -71,6 +73,9 @@ def load_hpo_history():
             with open(data_dir + _file, 'rb') as f:
                 data = pickle.load(f)
                 perfs = np.array(list(data.values()))
+            p_max, p_min = np.max(perfs), np.min(perfs)
+            if p_max == p_min:
+                continue
             if (perfs == perfs[0]).all():
                 continue
             source_hpo_ids.append(dataset_id)
@@ -80,10 +85,15 @@ def load_hpo_history():
 
     # Load random hpo data to test the transfer performance.
     test_trial_num = 20000
-    for hpo_id in source_hpo_ids:
+    for id, hpo_id in enumerate(source_hpo_ids):
         _file = data_dir + '%s-%s-random-%d.pkl' % (hpo_id, algo_id, test_trial_num)
         with open(_file, 'rb') as f:
             data = pickle.load(f)
+            perfs = np.array(list(data.values()))
+            p_max, p_min = np.max(perfs), np.min(perfs)
+            if p_max == p_min:
+                print('The same perfs found.', id)
+                data = source_hpo_data[id].copy()
             random_hpo_data.append(data)
 
     print('Load meta-features for each dataset.')
@@ -118,9 +128,9 @@ if __name__ == "__main__":
             start_time = time.time()
 
             # Generate the source and target hpo data.
-            # target_hpo_data = hpo_data[id]
+            target_hpo_data = hpo_data[id]
             dataset_meta_features = list()
-            target_hpo_data = random_test_data[id]
+            # target_hpo_data = random_test_data[id]
             source_hpo_data = list()
             for _id, data in enumerate(hpo_data):
                 if _id != id:
@@ -144,6 +154,8 @@ if __name__ == "__main__":
                 surrogate_class = NoTL
             elif mth == 'es':
                 surrogate_class = ES
+            elif mth == 'obtl':
+                surrogate_class = OBTL
             elif mth == 'tst':
                 surrogate_class = TST
             elif mth == 'pogpe':
@@ -197,7 +209,7 @@ if __name__ == "__main__":
                 source_ids = [item[0] for item in enumerate(list(np.mean(weights, axis=0))) if item[1] >= 1e-2]
                 print('Source problems used', source_ids)
 
-        if run_num == -1:
+        if run_num == len(hpo_ids):
             mth_file = '%s_%s_%d_%d_%s_%s.pkl' % (mth, algo_id, n_src_data, trial_num, surrogate_type, task_id)
             with open(exp_dir + mth_file, 'wb') as f:
                 data = [np.array(exp_results), np.mean(exp_results, axis=0)]
