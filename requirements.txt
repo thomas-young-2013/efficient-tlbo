@@ -1,15 +1,14 @@
 setuptools
 cython
+joblib
+matplotlib
+seaborn
+six
+psutil
+typing
 
 numpy>=1.12.1
 scipy>=0.18.1
-six
-psutil
 ConfigSpace>=0.4.3,<0.5
 scikit-learn==0.21.3
-typing
 pyrfr>=0.5.0
-joblib
-
-matplotlib
-seaborn
