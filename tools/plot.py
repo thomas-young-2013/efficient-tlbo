@@ -58,7 +58,7 @@ def fetch_color_marker(m_list):
             fill_values(name, 1)
         elif name.startswith('rgpe') or name.startswith('obtl-gpoe'):
             fill_values(name, 2)
-        elif name.startswith('rs'):
+        elif name.startswith('rs') or name.startswith('obtlv'):
             fill_values(name, 3)
         elif name.startswith('tst'):
             fill_values(name, 4)

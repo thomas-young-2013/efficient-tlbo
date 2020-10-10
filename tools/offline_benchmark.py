@@ -85,18 +85,18 @@ def load_hpo_history():
     print('Load %s source hpo problems for algorithm %s.' % (len(source_hpo_ids), algo_id))
 
     # Load random hpo data to test the transfer performance.
-    if algo_id in ['random_forest', 'linear', 'extra_trees']:
-        test_trial_num = 10000
-        for id, hpo_id in enumerate(source_hpo_ids):
-            _file = data_dir + '%s-%s-random-%d.pkl' % (hpo_id, algo_id, test_trial_num)
-            with open(_file, 'rb') as f:
-                data = pickle.load(f)
-                perfs = np.array(list(data.values()))
-                p_max, p_min = np.max(perfs), np.min(perfs)
-                if p_max == p_min:
-                    print('The same perfs found.', id)
-                    data = source_hpo_data[id].copy()
-                random_hpo_data.append(data)
+    # if algo_id in ['random_forest', 'linear', 'extra_trees']:
+    #     test_trial_num = 10000
+    #     for id, hpo_id in enumerate(source_hpo_ids):
+    #         _file = data_dir + '%s-%s-random-%d.pkl' % (hpo_id, algo_id, test_trial_num)
+    #         with open(_file, 'rb') as f:
+    #             data = pickle.load(f)
+    #             perfs = np.array(list(data.values()))
+    #             p_max, p_min = np.max(perfs), np.min(perfs)
+    #             if p_max == p_min:
+    #                 print('The same perfs found.', id)
+    #                 data = source_hpo_data[id].copy()
+    #             random_hpo_data.append(data)
 
     print('Load meta-features for each dataset.')
     with open(data_dir + 'dataset_metafeatures.pkl', 'rb') as f:
