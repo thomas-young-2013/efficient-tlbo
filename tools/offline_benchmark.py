@@ -19,6 +19,7 @@ from tlbo.facade.pogpe import POGPE
 from tlbo.facade.stacking_gpr import SGPR
 from tlbo.facade.scot import SCoT
 from tlbo.facade.mklgp import MKLGP
+from tlbo.facade.obtl_variant import OBTLV
 from tlbo.config_space.space_instance import get_configspace_instance
 
 parser = argparse.ArgumentParser()
@@ -159,6 +160,8 @@ if __name__ == "__main__":
                 surrogate_class = ES
             elif mth == 'obtl':
                 surrogate_class = OBTL
+            elif mth == 'obtlv':
+                surrogate_class = OBTLV
             elif mth == 'tst':
                 surrogate_class = TST
             elif mth == 'pogpe':
@@ -191,11 +194,12 @@ if __name__ == "__main__":
                                 initial_runs=init_num,
                                 acq_func='ei')
             result = list()
-            _target_perfs = [_perf for (_, _perf) in list(random_test_data[id].items())]
-            _y_max, _y_min = np.max(_target_perfs), np.min(_target_perfs)
+            if len(random_test_data) > 0:
+                _target_perfs = [_perf for (_, _perf) in list(random_test_data[id].items())]
+                _y_max, _y_min = np.max(_target_perfs), np.min(_target_perfs)
 
             for _iter_id in range(trial_num):
-                if surrogate.method_id == 'rs':
+                if surrogate.method_id == 'rs' and len(random_test_data) > 0:
                     _perfs = _target_perfs[:(_iter_id + 1)]
                     y_inc = np.min(_perfs)
                     adtm = (y_inc - _y_min) / (_y_max - _y_min)
