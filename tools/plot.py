@@ -29,7 +29,7 @@ parser.add_argument('--algo_id', type=str, default='random_forest')
 parser.add_argument('--methods', type=str, default='notl,rgpe,es,rs')
 parser.add_argument('--data_dir', type=str, default='./data/exp_results/')
 parser.add_argument('--transfer_trials', type=int, default=50)
-parser.add_argument('--trial_num', type=int, default=20)
+parser.add_argument('--trial_num', type=int, default=50)
 args = parser.parse_args()
 
 benchmark_id = args.algo_id
