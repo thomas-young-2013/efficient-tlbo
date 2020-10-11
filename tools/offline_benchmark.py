@@ -24,6 +24,7 @@ from tlbo.config_space.space_instance import get_configspace_instance
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--task_id', type=str, default='main')
+parser.add_argument('--exp_id', type=str, default='exp1')
 parser.add_argument('--algo_id', type=str, default='random_forest')
 parser.add_argument('--methods', type=str, default='rgpe')
 parser.add_argument('--surrogate_type', type=str, default='rf')
@@ -35,6 +36,7 @@ parser.add_argument('--num_source_problem', type=int, default=-1)
 parser.add_argument('--num_target_data', type=int, default=10000)
 args = parser.parse_args()
 algo_id = args.algo_id
+exp_id = args.exp_id
 task_id = args.task_id
 surrogate_type = args.surrogate_type
 n_src_data = args.num_source_data
@@ -45,7 +47,10 @@ init_num = args.init_num
 run_num = args.run_num
 baselines = args.methods.split(',')
 data_dir = 'data/hpo_data/'
-exp_dir = 'data/exp_results/'
+exp_dir = 'data/exp_results/%s/' % exp_id
+
+if not os.path.exists(exp_dir):
+    os.makedirs(exp_dir)
 
 
 if init_num > 0:
