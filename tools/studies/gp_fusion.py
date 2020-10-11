@@ -6,20 +6,12 @@ import pickle
 import argparse
 import numpy as np
 
-
 sys.path.append(os.getcwd())
-from tlbo.framework.smbo_offline import SMBO_OFFLINE
-from tlbo.facade.notl import NoTL
-from tlbo.facade.rgpe import RGPE
-from tlbo.facade.obtl_es import ES
 from tlbo.facade.obtl import OBTL
-from tlbo.facade.random_surrogate import RandomSearch
-from tlbo.facade.tst import TST
-from tlbo.facade.pogpe import POGPE
-from tlbo.facade.stacking_gpr import SGPR
-from tlbo.facade.scot import SCoT
-from tlbo.facade.mklgp import MKLGP
 from tlbo.facade.obtl_variant import OBTLV
+from tlbo.facade.obtl_es import ES
+from tlbo.facade.rgpe import RGPE
+from tlbo.framework.smbo_offline import SMBO_OFFLINE
 from tlbo.config_space.space_instance import get_configspace_instance
 
 parser = argparse.ArgumentParser()
@@ -45,8 +37,10 @@ init_num = args.init_num
 run_num = args.run_num
 baselines = args.methods.split(',')
 data_dir = 'data/hpo_data/'
-exp_dir = 'data/exp_results/'
+exp_dir = 'data/exp_results/fusion/'
 
+if not os.path.exists(exp_dir):
+    os.makedirs(exp_dir)
 
 if init_num > 0:
     enable_init_design = True
@@ -85,8 +79,8 @@ def load_hpo_history():
     print('Load %s source hpo problems for algorithm %s.' % (len(source_hpo_ids), algo_id))
 
     # Load random hpo data to test the transfer performance.
-    # if algo_id in ['random_forest', 'linear', 'extra_trees']:
-    #     test_trial_num = 10000
+    # if algo_id == 'random_forest':
+    #     test_trial_num = 20000
     #     for id, hpo_id in enumerate(source_hpo_ids):
     #         _file = data_dir + '%s-%s-random-%d.pkl' % (hpo_id, algo_id, test_trial_num)
     #         with open(_file, 'rb') as f:
@@ -121,8 +115,6 @@ if __name__ == "__main__":
     seeds = np.random.randint(low=1, high=10000, size=len(hpo_ids))
     run_num = len(hpo_ids) if run_num == -1 else run_num
     num_source_problem = (len(hpo_ids) - 1) if num_source_problem == -1 else num_source_problem
-    if 'rs' in baselines and len(random_test_data) == 0:
-        raise ValueError('The random test data is empty!')
 
     for mth in baselines:
         exp_results = list()
@@ -152,38 +144,20 @@ if __name__ == "__main__":
             # Add the meta-features in the target problem.
             dataset_meta_features.append(meta_features[id])
 
-            if mth == 'rgpe':
-                surrogate_class = RGPE
-            elif mth == 'notl':
-                surrogate_class = NoTL
-            elif mth == 'es':
-                surrogate_class = ES
-            elif mth == 'obtl':
-                surrogate_class = OBTL
-            elif mth == 'obtlv':
+            if mth.startswith('obtlv'):
                 surrogate_class = OBTLV
-            elif mth == 'tst':
-                surrogate_class = TST
-            elif mth == 'pogpe':
-                surrogate_class = POGPE
-            elif mth == 'sgpr':
-                surrogate_class = SGPR
-            elif mth == 'scot':
-                surrogate_class = SCoT
-            elif mth == 'mklgp':
-                surrogate_class = MKLGP
-            elif mth == 'rs':
-                surrogate_class = RandomSearch
+            elif mth.startswith('obtl'):
+                surrogate_class = OBTL
+            elif mth.startswith('es'):
+                surrogate_class = ES
+            elif mth.startswith('rgpe'):
+                surrogate_class = RGPE
             else:
                 raise ValueError('Invalid baseline name - %s.' % mth)
-            if mth not in ['mklgp', 'scot']:
-                surrogate = surrogate_class(config_space, source_hpo_data, target_hpo_data, seed,
-                                            surrogate_type=surrogate_type,
-                                            num_src_hpo_trial=n_src_data)
-            else:
-                surrogate = surrogate_class(config_space, source_hpo_data, target_hpo_data, seed,
-                                            surrogate_type=surrogate_type,
-                                            num_src_hpo_trial=n_src_data, metafeatures=dataset_meta_features)
+            _fusion = mth.split('-')[1]
+            surrogate = surrogate_class(config_space, source_hpo_data, target_hpo_data, seed,
+                                        surrogate_type=surrogate_type,
+                                        num_src_hpo_trial=n_src_data, fusion_method=_fusion)
 
             smbo = SMBO_OFFLINE(target_hpo_data, config_space, surrogate,
                                 random_seed=seed, max_runs=trial_num,
@@ -194,21 +168,13 @@ if __name__ == "__main__":
                                 initial_runs=init_num,
                                 acq_func='ei')
             result = list()
-            if len(random_test_data) > 0:
-                _target_perfs = [_perf for (_, _perf) in list(random_test_data[id].items())]
-                _y_max, _y_min = np.max(_target_perfs), np.min(_target_perfs)
-
-            for _iter_id in range(trial_num):
-                if surrogate.method_id == 'rs' and len(random_test_data) > 0:
-                    _perfs = _target_perfs[:(_iter_id + 1)]
-                    y_inc = np.min(_perfs)
-                    adtm = (y_inc - _y_min) / (_y_max - _y_min)
-                    result.append([adtm, y_inc, 0.1])
-                else:
-                    config, _, perf, _ = smbo.iterate()
-                    time_taken = time.time() - start_time
-                    adtm, y_inc = smbo.get_adtm(), smbo.get_inc_y()
-                    result.append([adtm, y_inc, time_taken])
+            for _ in range(trial_num):
+                config, _, perf, _ = smbo.iterate()
+                # print(config, perf)
+                time_taken = time.time() - start_time
+                adtm, y_inc = smbo.get_adtm(), smbo.get_inc_y()
+                # print('%.3f - %.3f' % (adtm, y_inc))
+                result.append([adtm, y_inc, time_taken])
             exp_results.append(result)
             print('In %d-th problem: %s' % (id, hpo_ids[id]), 'adtm, y_inc', result[-1])
             print('min/max', smbo.y_min, smbo.y_max)

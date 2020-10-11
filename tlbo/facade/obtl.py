@@ -117,23 +117,7 @@ class OBTL(BaseFacade):
         return _w[-1]
 
     def predict(self, X: np.array):
-        w = self.w.copy()
-        # w = np.mean(self.hist_ws[-3:], axis=0)
-        if self.target_surrogate is not None:
-            mu, var = self.target_surrogate.predict(X)
-        else:
-            mu, var = np.zeros((X.shape[0], 1)), np.zeros((X.shape[0], 1))
-        # Target surrogate predictions with weight.
-        mu *= w[-1]
-        var *= (w[-1] * w[-1])
-
-        # Base surrogate predictions with corresponding weights.
-        for i in range(0, self.K):
-            if w[i] > 0:
-                mu_t, var_t = self.source_surrogates[i].predict(X)
-                mu += (w[i] * mu_t)
-                var += (w[i] * w[i] * var_t)
-        return mu, var
+        return self.combine_predictions(X, self.fusion_method)
 
     def get_weights(self):
         return self.w

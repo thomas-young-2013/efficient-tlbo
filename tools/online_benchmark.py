@@ -11,7 +11,7 @@ sys.path.append(os.getcwd())
 from tlbo.framework.smbo_offline import SMBO_OFFLINE
 from tlbo.facade.notl import NoTL
 from tlbo.facade.rgpe import RGPE
-from tlbo.facade.ensemble_selection import ES
+from tlbo.facade.obtl_es import ES
 from tlbo.facade.random_surrogate import RandomSearch
 from tlbo.facade.tst import TST
 from tlbo.facade.pogpe import POGPE

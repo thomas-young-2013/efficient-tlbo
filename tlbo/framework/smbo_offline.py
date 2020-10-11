@@ -108,7 +108,7 @@ class SMBO_OFFLINE(BasePipeline):
             self.iterate()
 
     def sort_configs_by_score(self):
-        from tlbo.facade.ensemble_selection import ES
+        from tlbo.facade.obtl_es import ES
         surrogate = ES(self.config_space, self.source_hpo_data,
                        self.configuration_list, self.random_seed,
                        surrogate_type=self.surrogate_type,

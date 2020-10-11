@@ -161,7 +161,8 @@ class BaseFacade(object):
                     _mu, _var = self.target_surrogate.predict(X)
                     target_var = _var
                 else:
-                    _mu, _var = 0., 0.
+                    _mu, _var = np.zeros((n, 1)), np.zeros((n, 1))
+                    raise ValueError('Target surrogate is none.')
             else:
                 _mu, _var = self.source_surrogates[i].predict(X)
             mu += w[i] * _mu
