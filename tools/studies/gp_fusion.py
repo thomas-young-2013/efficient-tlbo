@@ -8,6 +8,7 @@ import numpy as np
 
 sys.path.append(os.getcwd())
 from tlbo.facade.obtl import OBTL
+from tlbo.facade.obtl_variant import OBTLV
 from tlbo.facade.obtl_es import ES
 from tlbo.facade.rgpe import RGPE
 from tlbo.framework.smbo_offline import SMBO_OFFLINE
@@ -143,7 +144,9 @@ if __name__ == "__main__":
             # Add the meta-features in the target problem.
             dataset_meta_features.append(meta_features[id])
 
-            if mth.startswith('obtl'):
+            if mth.startswith('obtlv'):
+                surrogate_class = OBTLV
+            elif mth.startswith('obtl'):
                 surrogate_class = OBTL
             elif mth.startswith('es'):
                 surrogate_class = ES
