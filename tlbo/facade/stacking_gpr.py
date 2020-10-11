@@ -69,7 +69,7 @@ class SGPR(BaseFacade):
         idxs = list()
         for item in X:
             # index = self.configs_set.index(list(item))
-            index = self.index_mapper[list(item)]
+            index = self.index_mapper[str(list(item))]
             idxs.append(index)
         prior_mu, prior_sigma = self.cached_prior_mu[idxs], self.cached_prior_sigma[idxs]
         prior_mu = np.array(prior_mu)
@@ -112,7 +112,7 @@ class SGPR(BaseFacade):
         index_list = list()
         for x in X:
             # index = self.configs_set.index(list(x))
-            index = self.index_mapper[list(x)]
+            index = self.index_mapper[str(list(x))]
             index_list.append(index)
 
         mu_list, var_list = self.cached_stacking_mu[index_list], self.cached_stacking_sigma[index_list]
