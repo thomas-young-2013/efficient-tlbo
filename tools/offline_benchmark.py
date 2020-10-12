@@ -193,6 +193,10 @@ if __name__ == "__main__":
                                 enable_init_design=enable_init_design,
                                 initial_runs=init_num,
                                 acq_func='ei')
+
+            # How to use the function
+            # topk_configs=smbo.load_topk_configs(dataset_meta_features[:-1], dataset_meta_features[-1])
+
             result = list()
             if len(random_test_data) > 0:
                 _target_perfs = [_perf for (_, _perf) in list(random_test_data[id].items())]
