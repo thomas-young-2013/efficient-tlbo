@@ -23,7 +23,7 @@ from tlbo.config_space.space_instance import get_configspace_instance
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--task_id', type=str, default='main')
-parser.add_argument('--exp_id', type=str, default='online')
+parser.add_argument('--exp_id', type=str, default='main')
 parser.add_argument('--algo_id', type=str, default='random_forest')
 parser.add_argument('--methods', type=str, default='rgpe')
 parser.add_argument('--surrogate_type', type=str, default='rf')
@@ -47,12 +47,8 @@ init_num = args.init_num
 run_num = args.run_num
 test_mode = args.test_mode
 baselines = args.methods.split(',')
+
 data_dir = 'data/hpo_data/'
-exp_dir = 'data/exp_results/%s/' % exp_id
-
-if not os.path.exists(exp_dir):
-    os.makedirs(exp_dir)
-
 assert test_mode in ['bo', 'random']
 if init_num > 0:
     enable_init_design = True
@@ -131,6 +127,11 @@ if __name__ == "__main__":
     num_source_problem = (len(hpo_ids) - 1) if num_source_problem == -1 else num_source_problem
     if 'rs' in baselines and len(random_test_data) == 0:
         raise ValueError('The random test data is empty!')
+
+    # Exp folder to save results.
+    exp_dir = 'data/exp_results/%s_%d/' % (exp_id, num_source_problem)
+    if not os.path.exists(exp_dir):
+        os.makedirs(exp_dir)
 
     for mth in baselines:
         exp_results = list()
