@@ -7,21 +7,25 @@ import argparse
 import numpy as np
 from collections import OrderedDict
 
+
 sys.path.append(os.getcwd())
 from tlbo.framework.smbo_offline import SMBO_OFFLINE
 from tlbo.facade.notl import NoTL
 from tlbo.facade.rgpe import RGPE
 from tlbo.facade.obtl_es import ES
+from tlbo.facade.obtl import OBTL
 from tlbo.facade.random_surrogate import RandomSearch
 from tlbo.facade.tst import TST
 from tlbo.facade.pogpe import POGPE
 from tlbo.facade.stacking_gpr import SGPR
 from tlbo.facade.scot import SCoT
 from tlbo.facade.mklgp import MKLGP
+from tlbo.facade.obtl_variant import OBTLV
 from tlbo.config_space.space_instance import get_configspace_instance
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--task_id', type=str, default='main')
+parser.add_argument('--exp_id', type=str, default='online')
 parser.add_argument('--algo_id', type=str, default='random_forest')
 parser.add_argument('--methods', type=str, default='rgpe')
 parser.add_argument('--surrogate_type', type=str, default='rf')
@@ -33,6 +37,7 @@ parser.add_argument('--num_source_problem', type=int, default=-1)
 parser.add_argument('--num_target_data', type=int, default=10000)
 args = parser.parse_args()
 algo_id = args.algo_id
+exp_id = args.exp_id
 task_id = args.task_id
 surrogate_type = args.surrogate_type
 n_src_data = args.num_source_data
@@ -43,7 +48,10 @@ init_num = args.init_num
 run_num = args.run_num
 baselines = args.methods.split(',')
 data_dir = 'data/hpo_data/'
-exp_dir = 'data/exp_results/'
+exp_dir = 'data/exp_results/%s/' % exp_id
+
+if not os.path.exists(exp_dir):
+    os.makedirs(exp_dir)
 
 
 if init_num > 0:
@@ -64,13 +72,17 @@ def load_hpo_history():
     for _file in sorted(os.listdir(data_dir)):
         if _file.endswith('.pkl') and _file.find(algo_id) != -1:
             result = re.search(pattern, _file, re.I)
+            if result is None:
+                continue
             dataset_id, algo_name, total_trial_num = result.group(1), result.group(2), result.group(3)
-            # print(dataset_id, algo_name, total_trial_num)
             if int(total_trial_num) != n_target_data:
                 continue
             with open(data_dir + _file, 'rb') as f:
                 data = pickle.load(f)
                 perfs = np.array(list(data.values()))
+            p_max, p_min = np.max(perfs), np.min(perfs)
+            if p_max == p_min:
+                continue
             if (perfs == perfs[0]).all():
                 continue
             source_hpo_ids.append(dataset_id)
@@ -79,23 +91,56 @@ def load_hpo_history():
     print('Load %s source hpo problems for algorithm %s.' % (len(source_hpo_ids), algo_id))
 
     # Load random hpo data to test the transfer performance.
-    test_trial_num = 20000
+    # if algo_id in ['random_forest', 'linear', 'extra_trees']:
+    #     test_trial_num = 10000
+    #     for id, hpo_id in enumerate(source_hpo_ids):
+    #         _file = data_dir + '%s-%s-random-%d.pkl' % (hpo_id, algo_id, test_trial_num)
+    #         with open(_file, 'rb') as f:
+    #             data = pickle.load(f)
+    #             perfs = np.array(list(data.values()))
+    #             p_max, p_min = np.max(perfs), np.min(perfs)
+    #             if p_max == p_min:
+    #                 print('The same perfs found.', id)
+    #                 data = source_hpo_data[id].copy()
+    #             random_hpo_data.append(data)
+
+    print('Load meta-features for each dataset.')
+    with open(data_dir + 'dataset_metafeatures.pkl', 'rb') as f:
+        dataset_info = pickle.load(f)
+        dataset_ids = [item for item in dataset_info['task_ids']]
+        dataset_meta_features = list(dataset_info['dataset_embedding'])
+        meta_features_dict = dict(zip(dataset_ids, dataset_meta_features))
+
+    meta_features = list()
     for hpo_id in source_hpo_ids:
-        _file = data_dir + '%s-%s-random-%d.pkl' % (hpo_id, algo_id, test_trial_num)
-        with open(_file, 'rb') as f:
-            data = pickle.load(f)
-            random_hpo_data.append(data)
-    return source_hpo_ids, source_hpo_data, random_hpo_data
+        assert hpo_id in dataset_ids
+        meta_features.append(np.array(meta_features_dict[hpo_id], dtype=np.float64))
+
+    return source_hpo_ids, source_hpo_data, random_hpo_data, meta_features
+
+
+def fetch_subset(data, num):
+    keys, values = list(data.keys())[:num], list(data.values())[:num]
+    return OrderedDict(zip(keys, values))
 
 
 if __name__ == "__main__":
-    hpo_ids, hpo_data, random_test_data = load_hpo_history()
+    _hpo_ids, _hpo_data, _random_test_data, _meta_features = load_hpo_history()
     algo_name = 'liblinear_svc' if algo_id == 'linear' else algo_id
     config_space = get_configspace_instance(algo_id=algo_name)
     np.random.seed(42)
-    seeds = np.random.randint(low=1, high=10000, size=len(hpo_ids))
-    run_num = len(hpo_ids) if run_num == -1 else run_num
-    num_source_problem = (len(hpo_ids) - 1) if num_source_problem == -1 else num_source_problem
+    seeds = np.random.randint(low=1, high=10000, size=len(_hpo_ids))
+    run_num = len(_hpo_ids) if run_num == -1 else run_num
+    num_source_problem = (len(_hpo_ids) - 1) if num_source_problem == -1 else num_source_problem
+
+    idx = np.arange(len(_hpo_data))
+    np.random.shuffle(idx)
+    assert len(_hpo_ids) == len(_hpo_data) and len(_hpo_ids) == len(_meta_features)
+    hpo_data = [_hpo_data[id] for id in idx]
+    hpo_ids = [_hpo_ids[id] for id in idx]
+    meta_features = [_meta_features[id] for id in idx]
+    if len(_random_test_data) == len(_hpo_ids):
+        random_test_data = [_random_test_data[id] for id in idx]
 
     for mth in baselines:
         exp_results = list()
@@ -106,8 +151,13 @@ if __name__ == "__main__":
             print('In %d-th problem: %s' % (id, hpo_ids[id]), '#source problem = %d.' % len(source_hpo_data))
             start_time = time.time()
 
+            if id == 0:
+                # The first task.
+                source_hpo_data.append(fetch_subset(hpo_data[id], trial_num))
+
             # Set target hpo data.
-            target_hpo_data = random_test_data[id]
+            # target_hpo_data = random_test_data[id]
+            target_hpo_data = hpo_data[id]
 
             # Random seed.
             seed = seeds[id]
