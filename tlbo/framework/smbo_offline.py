@@ -239,3 +239,35 @@ class SMBO_OFFLINE(BasePipeline):
                 if _config not in (self.configurations + self.failed_configurations):
                     return _config
             raise ValueError('The configuration in the SET (%d) is over' % len(self.configuration_list))
+
+    def load_topk_configs(self, src_meta_features, tar_meta_feature, k=5, trial_num=50):
+        dataset_array = self.scale_fit_meta_features(src_meta_features)
+        tar_dataset_array = self.scale_transform_meta_features(tar_meta_feature)
+        tar_dataset_array = np.clip(tar_dataset_array, 0, 1)
+        dis_list = list()
+        for src_feature in dataset_array:
+            dis_list.append(np.sqrt(np.sum(np.square(src_feature - tar_dataset_array))))
+        sorted_dis_idx = np.argsort(dis_list)
+        topk_id = sorted_dis_idx[:k]
+
+        topk_configs = list()
+        for id in topk_id:
+            configs_id = list(self.source_hpo_data[id].items())[:trial_num]
+            sorted_configs = sorted(configs_id, key=lambda x: x[1])
+            topk_configs.append(sorted_configs[0][0])
+        return topk_configs
+
+    def scale_fit_meta_features(self, meta_features):
+        from sklearn.preprocessing import MinMaxScaler, Imputer
+        meta_features = np.array(meta_features)
+        self.meta_feature_imputer = Imputer(missing_values='NaN', strategy='mean', axis=0)
+        self.meta_feature_imputer.fit(meta_features)
+        meta_features = self.meta_feature_imputer.transform(meta_features)
+        self.meta_feature_scaler = MinMaxScaler()
+        self.meta_feature_scaler.fit(meta_features)
+        return self.meta_feature_scaler.transform(meta_features)
+
+    def scale_transform_meta_features(self, meta_feature):
+        _meta_features = np.array([meta_feature])
+        _meta_feature = self.meta_feature_imputer.transform(_meta_features)
+        return self.meta_feature_scaler.transform(_meta_feature)
