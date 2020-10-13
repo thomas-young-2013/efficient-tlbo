@@ -6,7 +6,6 @@ import pickle
 import argparse
 import numpy as np
 
-
 sys.path.append(os.getcwd())
 from tlbo.framework.smbo_offline import SMBO_OFFLINE
 from tlbo.facade.notl import NoTL
@@ -24,10 +23,11 @@ from tlbo.config_space.space_instance import get_configspace_instance
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--task_id', type=str, default='main')
-parser.add_argument('--exp_id', type=str, default='exp1')
+parser.add_argument('--exp_id', type=str, default='online')
 parser.add_argument('--algo_id', type=str, default='random_forest')
 parser.add_argument('--methods', type=str, default='rgpe')
 parser.add_argument('--surrogate_type', type=str, default='rf')
+parser.add_argument('--test_mode', type=str, default='bo')
 parser.add_argument('--trial_num', type=int, default=50)
 parser.add_argument('--init_num', type=int, default=0)
 parser.add_argument('--run_num', type=int, default=-1)
@@ -45,6 +45,7 @@ n_target_data = args.num_target_data
 trial_num = args.trial_num
 init_num = args.init_num
 run_num = args.run_num
+test_mode = args.test_mode
 baselines = args.methods.split(',')
 data_dir = 'data/hpo_data/'
 exp_dir = 'data/exp_results/%s/' % exp_id
@@ -52,7 +53,7 @@ exp_dir = 'data/exp_results/%s/' % exp_id
 if not os.path.exists(exp_dir):
     os.makedirs(exp_dir)
 
-
+assert test_mode in ['bo', 'random']
 if init_num > 0:
     enable_init_design = True
 else:
@@ -84,37 +85,39 @@ def load_hpo_history():
                 continue
             if (perfs == perfs[0]).all():
                 continue
+            if test_mode == 'random':
+                _file = data_dir + '%s-%s-random-%d.pkl' % (dataset_id, algo_id, n_target_data)
+                if not os.path.exists(_file):
+                    continue
             source_hpo_ids.append(dataset_id)
             source_hpo_data.append(data)
     assert len(source_hpo_ids) == len(source_hpo_data)
     print('Load %s source hpo problems for algorithm %s.' % (len(source_hpo_ids), algo_id))
 
     # Load random hpo data to test the transfer performance.
-    # if algo_id in ['random_forest', 'linear', 'extra_trees']:
-    #     test_trial_num = 10000
-    #     for id, hpo_id in enumerate(source_hpo_ids):
-    #         _file = data_dir + '%s-%s-random-%d.pkl' % (hpo_id, algo_id, test_trial_num)
-    #         with open(_file, 'rb') as f:
-    #             data = pickle.load(f)
-    #             perfs = np.array(list(data.values()))
-    #             p_max, p_min = np.max(perfs), np.min(perfs)
-    #             if p_max == p_min:
-    #                 print('The same perfs found.', id)
-    #                 data = source_hpo_data[id].copy()
-    #             random_hpo_data.append(data)
+    if test_mode == 'random':
+        test_trial_num = 10000
+        for id, hpo_id in enumerate(source_hpo_ids):
+            _file = data_dir + '%s-%s-random-%d.pkl' % (hpo_id, algo_id, test_trial_num)
+            with open(_file, 'rb') as f:
+                data = pickle.load(f)
+                perfs = np.array(list(data.values()))
+                p_max, p_min = np.max(perfs), np.min(perfs)
+                if p_max == p_min:
+                    print('The same perfs found in the %d-th problem' % id)
+                    data = source_hpo_data[id].copy()
+                random_hpo_data.append(data)
 
     print('Load meta-features for each dataset.')
+    meta_features = list()
     with open(data_dir + 'dataset_metafeatures.pkl', 'rb') as f:
         dataset_info = pickle.load(f)
         dataset_ids = [item for item in dataset_info['task_ids']]
         dataset_meta_features = list(dataset_info['dataset_embedding'])
         meta_features_dict = dict(zip(dataset_ids, dataset_meta_features))
-
-    meta_features = list()
     for hpo_id in source_hpo_ids:
         assert hpo_id in dataset_ids
         meta_features.append(np.array(meta_features_dict[hpo_id], dtype=np.float64))
-
     return source_hpo_ids, source_hpo_data, random_hpo_data, meta_features
 
 
@@ -137,10 +140,11 @@ if __name__ == "__main__":
             start_time = time.time()
 
             # Generate the source and target hpo data.
-            target_hpo_data = hpo_data[id]
-            dataset_meta_features = list()
-            # target_hpo_data = random_test_data[id]
-            source_hpo_data = list()
+            source_hpo_data, dataset_meta_features = list(), list()
+            if test_mode == 'bo':
+                target_hpo_data = hpo_data[id]
+            else:
+                target_hpo_data = random_test_data[id]
             for _id, data in enumerate(hpo_data):
                 if _id != id:
                     source_hpo_data.append(data)
@@ -203,15 +207,15 @@ if __name__ == "__main__":
             # topk_configs=smbo.load_topk_configs(dataset_meta_features[:-1], dataset_meta_features[-1])
 
             result = list()
-            if len(random_test_data) > 0:
-                _target_perfs = [_perf for (_, _perf) in list(random_test_data[id].items())]
-                _y_max, _y_min = np.max(_target_perfs), np.min(_target_perfs)
+            if test_mode == 'random':
+                rnd_target_perfs = [_perf for (_, _perf) in list(random_test_data[id].items())]
+                rnd_ymax, rnd_ymin = np.max(rnd_target_perfs), np.min(rnd_target_perfs)
 
             for _iter_id in range(trial_num):
-                if surrogate.method_id == 'rs' and len(random_test_data) > 0:
-                    _perfs = _target_perfs[:(_iter_id + 1)]
+                if surrogate.method_id == 'rs' and test_mode == 'random':
+                    _perfs = rnd_target_perfs[:(_iter_id + 1)]
                     y_inc = np.min(_perfs)
-                    adtm = (y_inc - _y_min) / (_y_max - _y_min)
+                    adtm = (y_inc - rnd_ymin) / (rnd_ymax - rnd_ymin)
                     result.append([adtm, y_inc, 0.1])
                 else:
                     config, _, perf, _ = smbo.iterate()
