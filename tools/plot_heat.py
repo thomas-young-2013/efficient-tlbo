@@ -52,7 +52,7 @@ fig, ax = plt.subplots()
 if dataset_id == 'abalone':
     vmin, vmax = 0.56, 0.68
 elif dataset_id == 'pollen':
-    vmin, vmax = 0.48, 0.525
+    vmin, vmax = 0.485, 0.525
 
 ax = sns.heatmap(perf_matrix[:-1, :], ax=ax, cmap="YlGnBu", vmin=vmin, vmax=vmax,
                  linewidths=.5, xticklabels=5, yticklabels=4)
