@@ -29,6 +29,7 @@ parser.add_argument('--exp_id', type=str, default='online')
 parser.add_argument('--algo_id', type=str, default='random_forest')
 parser.add_argument('--methods', type=str, default='rgpe')
 parser.add_argument('--surrogate_type', type=str, default='rf')
+parser.add_argument('--test_mode', type=str, default='bo')
 parser.add_argument('--trial_num', type=int, default=50)
 parser.add_argument('--init_num', type=int, default=0)
 parser.add_argument('--run_num', type=int, default=-1)
@@ -46,6 +47,7 @@ n_target_data = args.num_target_data
 trial_num = args.trial_num
 init_num = args.init_num
 run_num = args.run_num
+test_mode = args.test_mode
 baselines = args.methods.split(',')
 data_dir = 'data/hpo_data/'
 exp_dir = 'data/exp_results/%s/' % exp_id
@@ -53,7 +55,7 @@ exp_dir = 'data/exp_results/%s/' % exp_id
 if not os.path.exists(exp_dir):
     os.makedirs(exp_dir)
 
-
+assert test_mode in ['bo', 'random']
 if init_num > 0:
     enable_init_design = True
 else:
@@ -85,37 +87,39 @@ def load_hpo_history():
                 continue
             if (perfs == perfs[0]).all():
                 continue
+            if test_mode == 'random':
+                _file = data_dir + '%s-%s-random-%d.pkl' % (dataset_id, algo_id, n_target_data)
+                if not os.path.exists(_file):
+                    continue
             source_hpo_ids.append(dataset_id)
             source_hpo_data.append(data)
     assert len(source_hpo_ids) == len(source_hpo_data)
     print('Load %s source hpo problems for algorithm %s.' % (len(source_hpo_ids), algo_id))
 
-    # Load random hpo data to test the transfer performance.
-    # if algo_id in ['random_forest', 'linear', 'extra_trees']:
-    #     test_trial_num = 10000
-    #     for id, hpo_id in enumerate(source_hpo_ids):
-    #         _file = data_dir + '%s-%s-random-%d.pkl' % (hpo_id, algo_id, test_trial_num)
-    #         with open(_file, 'rb') as f:
-    #             data = pickle.load(f)
-    #             perfs = np.array(list(data.values()))
-    #             p_max, p_min = np.max(perfs), np.min(perfs)
-    #             if p_max == p_min:
-    #                 print('The same perfs found.', id)
-    #                 data = source_hpo_data[id].copy()
-    #             random_hpo_data.append(data)
-
+    # Load random hpo data to test the transfer performance.    
+    if test_mode == 'random':
+        test_trial_num = 10000
+        for id, hpo_id in enumerate(source_hpo_ids):
+            _file = data_dir + '%s-%s-random-%d.pkl' % (hpo_id, algo_id, test_trial_num)
+            with open(_file, 'rb') as f:
+                data = pickle.load(f)
+                perfs = np.array(list(data.values()))
+                p_max, p_min = np.max(perfs), np.min(perfs)
+                if p_max == p_min:
+                    print('The same perfs found in the %d-th problem' % id)
+                    data = source_hpo_data[id].copy()
+                random_hpo_data.append(data)
+    
     print('Load meta-features for each dataset.')
+    meta_features = list()
     with open(data_dir + 'dataset_metafeatures.pkl', 'rb') as f:
         dataset_info = pickle.load(f)
         dataset_ids = [item for item in dataset_info['task_ids']]
         dataset_meta_features = list(dataset_info['dataset_embedding'])
         meta_features_dict = dict(zip(dataset_ids, dataset_meta_features))
-
-    meta_features = list()
     for hpo_id in source_hpo_ids:
         assert hpo_id in dataset_ids
         meta_features.append(np.array(meta_features_dict[hpo_id], dtype=np.float64))
-
     return source_hpo_ids, source_hpo_data, random_hpo_data, meta_features
 
 
@@ -139,9 +143,9 @@ if __name__ == "__main__":
     hpo_data = [_hpo_data[id] for id in idx]
     hpo_ids = [_hpo_ids[id] for id in idx]
     meta_features = [_meta_features[id] for id in idx]
-    if len(_random_test_data) == len(_hpo_ids):
+    if test_mode == 'random':
         random_test_data = [_random_test_data[id] for id in idx]
-
+    
     for mth in baselines:
         exp_results = list()
         source_hpo_data = list()
@@ -156,8 +160,10 @@ if __name__ == "__main__":
                 source_hpo_data.append(fetch_subset(hpo_data[id], trial_num))
 
             # Set target hpo data.
-            # target_hpo_data = random_test_data[id]
-            target_hpo_data = hpo_data[id]
+            if test_mode == 'random':
+                target_hpo_data = random_test_data[id]
+            else:
+                target_hpo_data = hpo_data[id]
 
             # Random seed.
             seed = seeds[id]
