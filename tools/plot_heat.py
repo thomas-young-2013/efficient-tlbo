@@ -50,7 +50,7 @@ print(perf_matrix)
 fig, ax = plt.subplots()
 
 if dataset_id == 'abalone':
-    vmin, vmax = 0.56, 0.68
+    vmin, vmax = 0.56, 0.655
 elif dataset_id == 'pollen':
     vmin, vmax = 0.485, 0.525
 
