@@ -35,7 +35,7 @@ def check_datasets(datasets):
 
 
 grid = {'learning_rate': np.logspace(-2, np.log10(2), gap_num),
-        'n_estimators': np.linspace(50, 487, gap_num).astype(int)}
+        'n_estimators': np.linspace(50, 500, gap_num).astype(int)}
 
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.model_selection import GridSearchCV
