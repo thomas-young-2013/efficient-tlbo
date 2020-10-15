@@ -57,5 +57,5 @@ for dataset in dataset_list:
     length = len(params)
     d = [(params[i], scores[i]) for i in range(length)]
 
-    with open('%s-adaboost.pkl' % dataset, 'wb')as f:
+    with open('%s-%d-adaboost.pkl' % (dataset, gap_num), 'wb')as f:
         pickle.dump(d, f)
