@@ -19,9 +19,11 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--datasets', type=str)
+parser.add_argument('--gap', type=int, default=50)
 
 args = parser.parse_args()
 dataset_str = args.datasets
+gap_num = args.gap
 
 
 def check_datasets(datasets):
@@ -32,8 +34,8 @@ def check_datasets(datasets):
             raise ValueError('Dataset - %s does not exist!' % _dataset)
 
 
-grid = {'learning_rate': np.logspace(-2, np.log10(2), 50),
-        'n_estimators': np.linspace(50, 487, 50).astype(int)}
+grid = {'learning_rate': np.logspace(-2, np.log10(2), gap_num),
+        'n_estimators': np.linspace(50, 487, gap_num).astype(int)}
 
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.model_selection import GridSearchCV
