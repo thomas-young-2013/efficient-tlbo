@@ -15,7 +15,7 @@ sns.set_style(style='whitegrid')
 
 plt.rc('text', usetex=True)
 
-plt.rc('font', size=16.0, family='sans-serif')
+plt.rc('font', size=16.0, family='Times New Roman')
 plt.rcParams['font.sans-serif'] = "Tahoma"
 
 # plt.rcParams['figure.figsize'] = (8.0, 4.5)
@@ -50,14 +50,29 @@ print(perf_matrix)
 fig, ax = plt.subplots()
 
 if dataset_id == 'abalone':
-    vmin, vmax = 0.56, 0.655
+    vmin, vmax = 0.56, 0.645
 elif dataset_id == 'pollen':
-    vmin, vmax = 0.485, 0.525
+    vmin, vmax = 0.48, 0.516
+elif dataset_id == 'sick':
+    vmin, vmax = 0.85, 0.94
+elif dataset_id == 'space_ga':
+    vmin, vmax = 0.72, 0.78
+elif dataset_id == 'quake':
+    vmin, vmax = 0.48, 0.51
+elif dataset_id == 'kc1':
+    vmin, vmax = 0.5, 0.6
+elif dataset_id == 'spambase':
+    vmin, vmax = 0.89, 0.93
+elif dataset_id == 'hypothyroid(2)':
+    vmin, vmax = 0.965, 0.99
 
 ax = sns.heatmap(perf_matrix[:-1, :], ax=ax, cmap="YlGnBu", vmin=vmin, vmax=vmax,
                  linewidths=.5, xticklabels=5, yticklabels=4)
 ax.set_xticklabels(abbr1)
 ax.set_yticklabels(abbr2)
+
+ax.set_ylabel('\\textbf{n\_estimators}', fontsize=15)
+ax.set_xlabel('\\textbf{learning rate}', fontsize=15)
 
 plt.show()
 # fig.savefig('./cmp.pdf', dpi=300)
