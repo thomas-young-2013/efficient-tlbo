@@ -32,8 +32,8 @@ def check_datasets(datasets):
             raise ValueError('Dataset - %s does not exist!' % _dataset)
 
 
-grid = {'learning_rate': np.logspace(-2, np.log10(2), 20),
-        'n_estimators': np.linspace(50, 487, 20).astype(int)}
+grid = {'learning_rate': np.logspace(-2, np.log10(2), 50),
+        'n_estimators': np.linspace(50, 487, 50).astype(int)}
 
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.model_selection import GridSearchCV
