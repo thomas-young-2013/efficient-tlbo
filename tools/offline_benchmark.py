@@ -126,8 +126,8 @@ if __name__ == "__main__":
     seeds = np.random.randint(low=1, high=10000, size=len(hpo_ids))
     run_num = len(hpo_ids) if run_num == -1 else run_num
     num_source_problem = (len(hpo_ids) - 1) if num_source_problem == -1 else num_source_problem
-    if 'rs' in baselines and len(random_test_data) == 0:
-        raise ValueError('The random test data is empty!')
+    # if 'rs' in baselines and len(random_test_data) == 0:
+    #     raise ValueError('The random test data is empty!')
 
     # Exp folder to save results.
     exp_dir = 'data/exp_results/%s_%d/' % (exp_id, num_source_problem)
