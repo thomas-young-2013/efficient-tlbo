@@ -131,7 +131,7 @@ if __name__ == "__main__":
     #     raise ValueError('The random test data is empty!')
 
     # Exp folder to save results.
-    exp_dir = 'data/exp_results/%s_%d/' % (exp_id, num_source_problem)
+    exp_dir = 'data/exp_results/%s_%s_%d_%d/' % (exp_id, test_mode, num_source_problem, num_random_data)
     if not os.path.exists(exp_dir):
         os.makedirs(exp_dir)
 
