@@ -15,7 +15,11 @@ class MKLGP(BaseFacade):
             raise ValueError('SCoT needs meta-features about the datasets.')
         else:
             assert len(metafeatures) == (self.K + 1)
-        self.metafeatures = self.scale_fit_meta_features(metafeatures)
+
+        self.metafeatures = np.zeros(shape=(len(metafeatures), len(metafeatures[0])))
+        self.metafeatures[:-1] = self.scale_fit_meta_features(metafeatures[:-1])
+        self.metafeatures[-1] = self.scale_transform_meta_features(metafeatures[-1])
+
         self.X, self.y = None, None
 
         for i, hpo_evaluation_data in enumerate(self.source_hpo_data):

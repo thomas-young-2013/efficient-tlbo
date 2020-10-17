@@ -243,7 +243,6 @@ class SMBO_OFFLINE(BasePipeline):
     def load_topk_configs(self, src_meta_features, tar_meta_feature, k=5, trial_num=50):
         dataset_array = self.scale_fit_meta_features(src_meta_features)
         tar_dataset_array = self.scale_transform_meta_features(tar_meta_feature)
-        tar_dataset_array = np.clip(tar_dataset_array, 0, 1)
         dis_list = list()
         for src_feature in dataset_array:
             dis_list.append(np.sqrt(np.sum(np.square(src_feature - tar_dataset_array))))

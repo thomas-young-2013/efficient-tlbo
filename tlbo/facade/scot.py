@@ -20,7 +20,10 @@ class SCoT(BaseFacade):
             # Should include the meta-feature for target problem.
             assert len(metafeatures) == (self.K + 1)
 
-        self.metafeatures = self.scale_fit_meta_features(metafeatures)
+        self.metafeatures = np.zeros(shape=(len(metafeatures), len(metafeatures[0])))
+        self.metafeatures[:-1] = self.scale_fit_meta_features(metafeatures[:-1])
+        self.metafeatures[-1] = self.scale_transform_meta_features(metafeatures[-1])
+
         self.X, self.y = None, None
 
         for i, hpo_evaluation_data in enumerate(self.source_hpo_data):
@@ -61,7 +64,7 @@ class SCoT(BaseFacade):
 
     def predict(self, X: np.array):
         num_sample = X.shape[0]
-        target_meta_feature = self.scale_transform_meta_features(self.metafeatures[self.K])
+        target_meta_feature = self.metafeatures[self.K]
         meta_vec = np.array([list(target_meta_feature[0]) for _ in range(num_sample)])
         _X = np.c_[X, meta_vec]
         mu, var = self.target_surrogate.predict(_X)

@@ -14,6 +14,7 @@ from tlbo.facade.obtl_es import ES
 from tlbo.facade.obtl import OBTL
 from tlbo.facade.random_surrogate import RandomSearch
 from tlbo.facade.tst import TST
+from tlbo.facade.tstm import TSTM
 from tlbo.facade.pogpe import POGPE
 from tlbo.facade.stacking_gpr import SGPR
 from tlbo.facade.scot import SCoT
@@ -184,9 +185,11 @@ if __name__ == "__main__":
                 surrogate_class = MKLGP
             elif mth == 'rs':
                 surrogate_class = RandomSearch
+            elif mth == 'tstm':
+                surrogate_class = TSTM
             else:
                 raise ValueError('Invalid baseline name - %s.' % mth)
-            if mth not in ['mklgp', 'scot']:
+            if mth not in ['mklgp', 'scot', 'tstm']:
                 surrogate = surrogate_class(config_space, source_hpo_data, target_hpo_data, seed,
                                             surrogate_type=surrogate_type,
                                             num_src_hpo_trial=n_src_data)

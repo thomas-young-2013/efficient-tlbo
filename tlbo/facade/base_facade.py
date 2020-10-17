@@ -18,7 +18,7 @@ class BaseFacade(object):
                  seed: int,
                  target_hp_configs: List = None,
                  history_dataset_features: List = None,
-                 num_src_hpo_trial: int=50,
+                 num_src_hpo_trial: int = 50,
                  surrogate_type='rf'):
         self.method_id = None
         self.config_space = config_space
@@ -172,8 +172,8 @@ class BaseFacade(object):
             if combination_method == 'gpoe':
                 _mu, _var = _mu.flatten(), _var.flatten()
                 if (_var != 0).all():
-                    var_buf[:, i] = (1./_var*w[i])
-                    mu_buf[:, i] = (1./_var*_mu*w[i])
+                    var_buf[:, i] = (1. / _var * w[i])
+                    mu_buf[:, i] = (1. / _var * _mu * w[i])
 
         if combination_method == 'no_var':
             return mu, target_var
@@ -201,4 +201,5 @@ class BaseFacade(object):
     def scale_transform_meta_features(self, meta_feature):
         _meta_features = np.array([meta_feature])
         _meta_feature = self.meta_feature_imputer.transform(_meta_features)
-        return self.meta_feature_scaler.transform(_meta_feature)
+        _meta_feature = self.meta_feature_scaler.transform(_meta_feature)
+        return np.clip(_meta_feature, 0, 1)
