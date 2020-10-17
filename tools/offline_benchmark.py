@@ -28,7 +28,7 @@ parser.add_argument('--exp_id', type=str, default='main')
 parser.add_argument('--algo_id', type=str, default='random_forest')
 parser.add_argument('--methods', type=str, default='rgpe')
 parser.add_argument('--surrogate_type', type=str, default='rf')
-parser.add_argument('--test_mode', type=str, default='bo')
+parser.add_argument('--test_mode', type=str, default='random')
 parser.add_argument('--trial_num', type=int, default=50)
 parser.add_argument('--init_num', type=int, default=0)
 parser.add_argument('--run_num', type=int, default=-1)
@@ -211,21 +211,20 @@ if __name__ == "__main__":
             # topk_configs=smbo.load_topk_configs(dataset_meta_features[:-1], dataset_meta_features[-1])
 
             result = list()
-            if test_mode == 'random':
-                rnd_target_perfs = [_perf for (_, _perf) in list(random_test_data[id].items())]
-                rnd_ymax, rnd_ymin = np.max(rnd_target_perfs), np.min(rnd_target_perfs)
+            # if test_mode == 'random':
+            #     rnd_target_perfs = [_perf for (_, _perf) in list(random_test_data[id].items())]
+            #     rnd_ymax, rnd_ymin = np.max(rnd_target_perfs), np.min(rnd_target_perfs)
 
             for _iter_id in range(trial_num):
-                if surrogate.method_id == 'rs' and test_mode == 'random':
-                    _perfs = rnd_target_perfs[:(_iter_id + 1)]
-                    y_inc = np.min(_perfs)
-                    adtm = (y_inc - rnd_ymin) / (rnd_ymax - rnd_ymin)
-                    result.append([adtm, y_inc, 0.1])
-                else:
-                    config, _, perf, _ = smbo.iterate()
-                    time_taken = time.time() - start_time
-                    adtm, y_inc = smbo.get_adtm(), smbo.get_inc_y()
-                    result.append([adtm, y_inc, time_taken])
+                # if surrogate.method_id == 'rs' and test_mode == 'random':
+                #     _perfs = rnd_target_perfs[:(_iter_id + 1)]
+                #     y_inc = np.min(_perfs)
+                #     adtm = (y_inc - rnd_ymin) / (rnd_ymax - rnd_ymin)
+                #     result.append([adtm, y_inc, 0.1])
+                config, _, perf, _ = smbo.iterate()
+                time_taken = time.time() - start_time
+                adtm, y_inc = smbo.get_adtm(), smbo.get_inc_y()
+                result.append([adtm, y_inc, time_taken])
             exp_results.append(result)
             print('In %d-th problem: %s' % (id, hpo_ids[id]), 'adtm, y_inc', result[-1])
             print('min/max', smbo.y_min, smbo.y_max)
