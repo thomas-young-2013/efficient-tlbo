@@ -35,6 +35,7 @@ parser.add_argument('--run_num', type=int, default=-1)
 parser.add_argument('--num_source_data', type=int, default=50)
 parser.add_argument('--num_source_problem', type=int, default=-1)
 parser.add_argument('--num_target_data', type=int, default=10000)
+parser.add_argument('--num_random_data', type=int, default=10000)
 args = parser.parse_args()
 algo_id = args.algo_id
 exp_id = args.exp_id
@@ -43,6 +44,7 @@ surrogate_type = args.surrogate_type
 n_src_data = args.num_source_data
 num_source_problem = args.num_source_problem
 n_target_data = args.num_target_data
+num_random_data = args.num_random_data
 trial_num = args.trial_num
 init_num = args.init_num
 run_num = args.run_num
@@ -83,7 +85,7 @@ def load_hpo_history():
             if (perfs == perfs[0]).all():
                 continue
             if test_mode == 'random':
-                _file = data_dir + '%s-%s-random-%d.pkl' % (dataset_id, algo_id, n_target_data)
+                _file = data_dir + '%s-%s-random-%d.pkl' % (dataset_id, algo_id, num_random_data)
                 if not os.path.exists(_file):
                     continue
             source_hpo_ids.append(dataset_id)
@@ -93,9 +95,8 @@ def load_hpo_history():
 
     # Load random hpo data to test the transfer performance.
     if test_mode == 'random':
-        test_trial_num = 10000
         for id, hpo_id in enumerate(source_hpo_ids):
-            _file = data_dir + '%s-%s-random-%d.pkl' % (hpo_id, algo_id, test_trial_num)
+            _file = data_dir + '%s-%s-random-%d.pkl' % (hpo_id, algo_id, num_random_data)
             with open(_file, 'rb') as f:
                 data = pickle.load(f)
                 perfs = np.array(list(data.values()))
