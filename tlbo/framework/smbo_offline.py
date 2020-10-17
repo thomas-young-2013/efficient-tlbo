@@ -82,7 +82,7 @@ class SMBO_OFFLINE(BasePipeline):
                                            rng=np.random.RandomState(self.random_seed)
                                            )
         self.random_configuration_chooser = ChooserProb(
-            prob=0.25,
+            prob=0.1,
             rng=np.random.RandomState(self.random_seed)
         )
 
