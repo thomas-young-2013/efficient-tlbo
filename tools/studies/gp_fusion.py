@@ -193,8 +193,8 @@ if __name__ == "__main__":
                 source_ids = [item[0] for item in enumerate(list(np.mean(weights, axis=0))) if item[1] >= 1e-2]
                 print('Source problems used', source_ids)
 
-        if run_num == len(hpo_ids):
-            mth_file = '%s_%s_%d_%d_%s_%s_%d.pkl' % (mth, algo_id, n_src_data, trial_num, surrogate_type, task_id, seed)
-            with open(exp_dir + mth_file, 'wb') as f:
-                data = [np.array(exp_results), np.mean(exp_results, axis=0)]
-                pickle.dump(data, f)
+            if run_num == len(hpo_ids):
+                mth_file = '%s_%s_%d_%d_%s_%s_%d.pkl' % (mth, algo_id, n_src_data, trial_num, surrogate_type, task_id, seed)
+                with open(exp_dir + mth_file, 'wb') as f:
+                    data = [np.array(exp_results), np.mean(exp_results, axis=0)]
+                    pickle.dump(data, f)
