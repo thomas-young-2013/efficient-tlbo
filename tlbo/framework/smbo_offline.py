@@ -120,7 +120,7 @@ class SMBO_OFFLINE(BasePipeline):
 
     def initial_design(self, n_init=3):
         initial_configs = list()
-        configs_ = self.sort_configs_by_score()[:100]
+        configs_ = self.sort_configs_by_score()[:25]
         from sklearn.cluster import KMeans
         X = convert_configurations_to_array(configs_)
         kmeans = KMeans(n_clusters=n_init, random_state=0).fit(X)
@@ -203,6 +203,7 @@ class SMBO_OFFLINE(BasePipeline):
                     config = self.sample_random_config()[0]
                 return config
             else:
+                print('This is a config for warm-start!')
                 return self.initial_configurations[_config_num]
 
         if self.random_configuration_chooser.check(self.iteration_id):
@@ -269,4 +270,5 @@ class SMBO_OFFLINE(BasePipeline):
     def scale_transform_meta_features(self, meta_feature):
         _meta_features = np.array([meta_feature])
         _meta_feature = self.meta_feature_imputer.transform(_meta_features)
-        return self.meta_feature_scaler.transform(_meta_feature)
+        _meta_feature = self.meta_feature_scaler.transform(_meta_feature)
+        return np.clip(_meta_feature, 0, 1)
