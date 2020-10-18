@@ -13,7 +13,7 @@ sns.set_style(style='whitegrid')
 
 plt.rc('text', usetex=True)
 
-plt.rc('font', size=16.0, family='sans-serif')
+plt.rc('font', size=10.0, family='sans-serif')
 plt.rcParams['font.sans-serif'] = "Tahoma"
 
 plt.rcParams['text.latex.preamble'] = [r"\usepackage{amsmath}"]
@@ -62,7 +62,7 @@ def fetch_color_marker(m_list):
     names_dict = dict()
     method_ids = ['obtl', 'rs', 'notl', 'scot', 'sgpr', 'tst', 'tstm', 'pogpe', 'rgpe']
     method_names = ['TOPO', 'RS', 'I-GP', 'SCoT', 'SGPR', 'TST', 'TST-M', 'POGPE', 'RGPE']
-    color_list = ['red', 'gray', 'royalblue', 'brown', 'purple', 'orange', 'yellowgreen', 'cornflowerblue', 'green', 'black']
+    color_list = ['red', 'orchid', 'royalblue', 'brown', 'purple', 'orange', 'yellowgreen', 'navy', 'green', 'black']
     markers = ['s', '^', '*', 'v', 'o', 'p', '2', 'x', '+', 'H']
 
     def fill_values(name, idx):
@@ -148,20 +148,17 @@ if __name__ == "__main__":
     color_dict, marker_dict, names_dict, method_ids = fetch_color_marker(methods)
     print(names_dict)
     method_list = list()
-    for _method in method_ids:
-        if _method in methods:
-            method_list.append(_method)
+    _orders = list()
+    for _method in methods:
+        if _method in method_ids:
+            _orders.append(method_ids.index(_method))
         else:
-            _tlbo_names = ['es', 'obtl', 'obtlv']
-            method_topo = list(set.intersection(set(_tlbo_names), set(methods)))
-            if len(method_topo) > 0:
-                method_list.append(method_topo[0])
-
+            _orders.append(0)
     print(methods)
-    methods = method_list
+    _methods = zip(methods, _orders)
+    methods = [item[0] for item in sorted(_methods, key=lambda x: x[1])]
     print(methods)
 
-    exit(-1)
     for _id, plot_type in enumerate(['ranking', 'adtm']):
         adtm_dict = {}
         num_ranking = np.inf
