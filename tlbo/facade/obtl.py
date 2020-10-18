@@ -18,7 +18,7 @@ class OBTL(BaseFacade):
         self.w = np.array([1. / self.K] * self.K + [0.])
         self.base_predictions = list()
         self.min_num_y = 5
-        self.ensemble_size = 100
+        self.ensemble_size = 50
 
         self.hist_ws = list()
         self.iteration_id = 0
