@@ -20,6 +20,7 @@ from tlbo.facade.stacking_gpr import SGPR
 from tlbo.facade.scot import SCoT
 from tlbo.facade.mklgp import MKLGP
 from tlbo.facade.obtl_variant import OBTLV
+from tlbo.facade.topo import TOPO
 from tlbo.config_space.space_instance import get_configspace_instance
 
 parser = argparse.ArgumentParser()
@@ -190,6 +191,8 @@ if __name__ == "__main__":
                 surrogate_class = RandomSearch
             elif mth == 'tstm':
                 surrogate_class = TSTM
+            elif mth == 'topo':
+                surrogate_class = TOPO
             else:
                 raise ValueError('Invalid baseline name - %s.' % mth)
             if mth not in ['mklgp', 'scot', 'tstm']:
