@@ -59,13 +59,14 @@ class SCoT(BaseFacade):
         rank_svm = RankSVM()
         rank_svm.fit(_X, _y)
         pred_y = rank_svm.predict(_X)
+        print('Rank SVM training finished.')
         self.target_surrogate = self.build_single_surrogate(_X, pred_y, normalize='none')
         self.iteration_id += 1
 
     def predict(self, X: np.array):
         num_sample = X.shape[0]
         target_meta_feature = self.metafeatures[self.K]
-        meta_vec = np.array([list(target_meta_feature[0]) for _ in range(num_sample)])
+        meta_vec = np.array([list(target_meta_feature) for _ in range(num_sample)])
         _X = np.c_[X, meta_vec]
         mu, var = self.target_surrogate.predict(_X)
         return mu, var
