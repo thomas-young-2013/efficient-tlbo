@@ -19,25 +19,28 @@ parser.add_argument('--task_id', type=str, default='main')
 parser.add_argument('--algo_id', type=str, default='random_forest')
 parser.add_argument('--methods', type=str, default='rgpe')
 parser.add_argument('--surrogate_type', type=str, default='rf')
-parser.add_argument('--trial_num', type=int, default=50)
+parser.add_argument('--trial_num', type=int, default=75)
 parser.add_argument('--init_num', type=int, default=0)
 parser.add_argument('--run_num', type=int, default=-1)
+parser.add_argument('--seed', type=int, default=42)
 parser.add_argument('--num_source_data', type=int, default=50)
 parser.add_argument('--num_source_problem', type=int, default=-1)
-parser.add_argument('--num_target_data', type=int, default=10000)
 args = parser.parse_args()
 algo_id = args.algo_id
 task_id = args.task_id
 surrogate_type = args.surrogate_type
 n_src_data = args.num_source_data
 num_source_problem = args.num_source_problem
-n_target_data = args.num_target_data
 trial_num = args.trial_num
 init_num = args.init_num
 run_num = args.run_num
 baselines = args.methods.split(',')
+seed = args.seed
 data_dir = 'data/hpo_data/'
 exp_dir = 'data/exp_results/fusion/'
+test_mode = 'random'
+n_target_data = 10000
+num_random_data = 20000
 
 if not os.path.exists(exp_dir):
     os.makedirs(exp_dir)
@@ -73,37 +76,38 @@ def load_hpo_history():
                 continue
             if (perfs == perfs[0]).all():
                 continue
+            if test_mode == 'random':
+                _file = data_dir + '%s-%s-random-%d.pkl' % (dataset_id, algo_id, num_random_data)
+                if not os.path.exists(_file):
+                    continue
             source_hpo_ids.append(dataset_id)
             source_hpo_data.append(data)
     assert len(source_hpo_ids) == len(source_hpo_data)
     print('Load %s source hpo problems for algorithm %s.' % (len(source_hpo_ids), algo_id))
 
     # Load random hpo data to test the transfer performance.
-    # if algo_id == 'random_forest':
-    #     test_trial_num = 20000
-    #     for id, hpo_id in enumerate(source_hpo_ids):
-    #         _file = data_dir + '%s-%s-random-%d.pkl' % (hpo_id, algo_id, test_trial_num)
-    #         with open(_file, 'rb') as f:
-    #             data = pickle.load(f)
-    #             perfs = np.array(list(data.values()))
-    #             p_max, p_min = np.max(perfs), np.min(perfs)
-    #             if p_max == p_min:
-    #                 print('The same perfs found.', id)
-    #                 data = source_hpo_data[id].copy()
-    #             random_hpo_data.append(data)
+    if test_mode == 'random':
+        for id, hpo_id in enumerate(source_hpo_ids):
+            _file = data_dir + '%s-%s-random-%d.pkl' % (hpo_id, algo_id, num_random_data)
+            with open(_file, 'rb') as f:
+                data = pickle.load(f)
+                perfs = np.array(list(data.values()))
+                p_max, p_min = np.max(perfs), np.min(perfs)
+                if p_max == p_min:
+                    print('The same perfs found in the %d-th problem' % id)
+                    data = source_hpo_data[id].copy()
+                random_hpo_data.append(data)
 
     print('Load meta-features for each dataset.')
+    meta_features = list()
     with open(data_dir + 'dataset_metafeatures.pkl', 'rb') as f:
         dataset_info = pickle.load(f)
         dataset_ids = [item for item in dataset_info['task_ids']]
         dataset_meta_features = list(dataset_info['dataset_embedding'])
         meta_features_dict = dict(zip(dataset_ids, dataset_meta_features))
-
-    meta_features = list()
     for hpo_id in source_hpo_ids:
         assert hpo_id in dataset_ids
         meta_features.append(np.array(meta_features_dict[hpo_id], dtype=np.float64))
-
     return source_hpo_ids, source_hpo_data, random_hpo_data, meta_features
 
 
@@ -111,7 +115,7 @@ if __name__ == "__main__":
     hpo_ids, hpo_data, random_test_data, meta_features = load_hpo_history()
     algo_name = 'liblinear_svc' if algo_id == 'linear' else algo_id
     config_space = get_configspace_instance(algo_id=algo_name)
-    np.random.seed(42)
+    np.random.seed(seed)
     seeds = np.random.randint(low=1, high=10000, size=len(hpo_ids))
     run_num = len(hpo_ids) if run_num == -1 else run_num
     num_source_problem = (len(hpo_ids) - 1) if num_source_problem == -1 else num_source_problem
@@ -124,9 +128,9 @@ if __name__ == "__main__":
             start_time = time.time()
 
             # Generate the source and target hpo data.
-            target_hpo_data = hpo_data[id]
+            # target_hpo_data = hpo_data[id]
             dataset_meta_features = list()
-            # target_hpo_data = random_test_data[id]
+            target_hpo_data = random_test_data[id]
             source_hpo_data = list()
             for _id, data in enumerate(hpo_data):
                 if _id != id:
@@ -189,8 +193,8 @@ if __name__ == "__main__":
                 source_ids = [item[0] for item in enumerate(list(np.mean(weights, axis=0))) if item[1] >= 1e-2]
                 print('Source problems used', source_ids)
 
-        if run_num == len(hpo_ids):
-            mth_file = '%s_%s_%d_%d_%s_%s.pkl' % (mth, algo_id, n_src_data, trial_num, surrogate_type, task_id)
-            with open(exp_dir + mth_file, 'wb') as f:
-                data = [np.array(exp_results), np.mean(exp_results, axis=0)]
-                pickle.dump(data, f)
+            if run_num == len(hpo_ids):
+                mth_file = '%s_%s_%d_%d_%s_%s_%d.pkl' % (mth, algo_id, n_src_data, trial_num, surrogate_type, task_id, seed)
+                with open(exp_dir + mth_file, 'wb') as f:
+                    data = [np.array(exp_results), np.mean(exp_results, axis=0)]
+                    pickle.dump(data, f)
