@@ -1,5 +1,6 @@
 import os
 import argparse
+import traceback
 import pickle as pkl
 from collections import Counter
 import numpy as np
@@ -15,15 +16,15 @@ plt.rc('text', usetex=True)
 plt.rc('font', size=16.0, family='sans-serif')
 plt.rcParams['font.sans-serif'] = "Tahoma"
 
-# plt.rcParams['figure.figsize'] = (8.0, 4.5)
 plt.rcParams['text.latex.preamble'] = [r"\usepackage{amsmath}"]
 plt.rcParams["legend.frameon"] = True
 plt.rcParams["legend.facecolor"] = 'white'
 plt.rcParams["legend.edgecolor"] = 'gray'
-plt.rcParams["legend.fontsize"] = 16
+plt.rcParams["legend.fontsize"] = 10
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--surrogate_type', type=str, default='rf')
+parser.add_argument('--exp_id', type=str, default='exp1')
 parser.add_argument('--task_id', type=str, default='main')
 parser.add_argument('--algo_id', type=str, default='random_forest')
 parser.add_argument('--methods', type=str, default='notl,rgpe,es,rs')
@@ -34,42 +35,76 @@ args = parser.parse_args()
 
 benchmark_id = args.algo_id
 task_id = args.task_id
+exp_id = args.exp_id
 surrogate_type = args.surrogate_type
 transfer_trials = args.transfer_trials
 run_trials = args.trial_num
 methods = args.methods.split(',')
 data_dir = args.data_dir
 
+if exp_id == 'exp1':
+    data_dir = 'data/exp_results/main_random_29_20000/'
+    run_trials = 75
+elif exp_id == 'exp2':
+    data_dir = 'data/exp_results/main_random_5_20000/'
+    run_trials = 75
+elif exp_id == 'exp3':
+    data_dir = 'data/exp_results/online/'
+elif exp_id == 'exp4':
+    data_dir = 'data/exp_results/combination/'
+else:
+    raise ValueError('Invalid exp id - %s.' % exp_id)
+
 
 def fetch_color_marker(m_list):
     color_dict = dict()
     marker_dict = dict()
-    color_list = ['red', 'royalblue', 'green', 'brown', 'purple', 'orange', 'yellowgreen', 'purple']
-    markers = ['s', '^', '*', 'v', 'o', 'p', '2', 'x']
+    names_dict = dict()
+    method_ids = ['obtl', 'rs', 'notl', 'scot', 'sgpr', 'tst', 'tstm', 'pogpe', 'rgpe']
+    method_names = ['TOPO', 'RS', 'I-GP', 'SCoT', 'SGPR', 'TST', 'TST-M', 'POGPE', 'RGPE']
+    color_list = ['red', 'gray', 'royalblue', 'brown', 'purple', 'orange', 'yellowgreen', 'cornflowerblue', 'green', 'black']
+    markers = ['s', '^', '*', 'v', 'o', 'p', '2', 'x', '+', 'H']
 
     def fill_values(name, idx):
         color_dict[name] = color_list[idx]
         marker_dict[name] = markers[idx]
+        names_dict[name] = method_names[idx]
 
     for name in m_list:
-        if name.startswith('es') or name.startswith('obtl-idp_lc') or name == 'obtl':
-            fill_values(name, 0)
-        elif name.startswith('notl') or name.startswith('obtl-no_var'):
-            fill_values(name, 1)
-        elif name.startswith('rgpe') or name.startswith('obtl-gpoe'):
-            fill_values(name, 2)
-        elif name.startswith('rs') or name.startswith('obtlv-gpoe'):
-            fill_values(name, 3)
-        elif name.startswith('tst') or name.startswith('obtlv'):
-            fill_values(name, 4)
-        elif name.startswith('pogpe'):
-            fill_values(name, 5)
-        elif name.startswith('sgpr'):
-            fill_values(name, 6)
+        if exp_id == 'exp4':
+            if name.find('-gpoe') != -1:
+                fill_values(name, 0)
+            elif name.find('-idp_lc') != -1:
+                fill_values(name, 1)
+            elif name.find('-no_var') != -1:
+                fill_values(name, 2)
+            else:
+                raise ValueError('Unexpected method - %s.' % name)
+        elif exp_id in ['exp1', 'exp2']:
+            if name == 'rs':
+                fill_values(name, 1)
+            elif name == 'notl':
+                fill_values(name, 2)
+            elif name == 'scot':
+                fill_values(name, 3)
+            elif name == 'sgpr':
+                fill_values(name, 4)
+            elif name == 'tst':
+                fill_values(name, 5)
+            elif name == 'tstm':
+                fill_values(name, 6)
+            elif name == 'pogpe':
+                fill_values(name, 7)
+            elif name == 'rgpe':
+                fill_values(name, 8)
+            else:
+                if name.startswith('es') or name.startswith('obtl'):
+                    fill_values(name, 0)
+                else:
+                    raise ValueError('Invalid method - %s.' % name)
         else:
-            print(name)
-            fill_values(name, 7)
-    return color_dict, marker_dict
+            raise ValueError('Invalid exp id - %s.' % exp_id)
+    return color_dict, marker_dict, names_dict, method_ids
 
 
 def get_mean_ranking(adtm_dict, idx, num_ranking):
@@ -108,10 +143,25 @@ if __name__ == "__main__":
     lw = 2
     ms = 6
     me = 5
-    plt.figure(figsize=(10, 4.5), dpi=100)
+    plt.figure(figsize=(10, 4), dpi=100)
     fig = plt.figure(1)
-    color_dict, marker_dict = fetch_color_marker(methods)
+    color_dict, marker_dict, names_dict, method_ids = fetch_color_marker(methods)
+    print(names_dict)
+    method_list = list()
+    for _method in method_ids:
+        if _method in methods:
+            method_list.append(_method)
+        else:
+            _tlbo_names = ['es', 'obtl', 'obtlv']
+            method_topo = list(set.intersection(set(_tlbo_names), set(methods)))
+            if len(method_topo) > 0:
+                method_list.append(method_topo[0])
 
+    print(methods)
+    methods = method_list
+    print(methods)
+
+    exit(-1)
     for _id, plot_type in enumerate(['ranking', 'adtm']):
         adtm_dict = {}
         num_ranking = np.inf
@@ -121,14 +171,11 @@ if __name__ == "__main__":
             for idx, method in enumerate(methods):
                 filename = '%s_%s_%d_%d_%s_%s.pkl' % (method, benchmark_id, transfer_trials,
                                                       run_trials, surrogate_type, task_id)
-                if method.find('-') != -1:
-                    _data_dir += 'fusion'
-                else:
-                    _data_dir = data_dir
-                path = os.path.join(_data_dir, filename)
+                path = os.path.join(data_dir, filename)
                 with open(path, 'rb')as f:
                     array = pkl.load(f)
-                label_name = r'\textbf{%s}' % (method.upper().replace('_', '-'))
+
+                label_name = r'\textbf{%s}' % names_dict[method]
                 x = list(range(len(array[1])))
                 if plot_type == 'adtm':
                     y = array[1][:, 1]
@@ -155,8 +202,8 @@ if __name__ == "__main__":
                     for method in adtm_dict.keys():
                         ranking_dict[method].append(mean_ranking_dict[method])
                         ranking_std_dict[method].append(std_ranking_dict[method])
-                for method in adtm_dict.keys():
-                    label_name = r'\textbf{%s}' % (method.upper().replace('_', '-'))
+                for idx, method in enumerate(methods):
+                    label_name = r'\textbf{%s}' % names_dict[method]
                     ax.plot(x, ranking_dict[method], lw=lw,
                             label=label_name, color=color_dict[method],
                             marker=marker_dict[method], markersize=ms, markevery=me
@@ -168,16 +215,18 @@ if __name__ == "__main__":
                     handles.append(line)
 
         except Exception as e:
+            traceback.print_exc()
             print(e)
 
         legend = ax.legend(handles=handles, loc=1, ncol=2)
+        label_fontsize = 12
         ax.xaxis.set_major_locator(ticker.MultipleLocator(5))
-        ax.set_xlabel('\\textbf{Number of Trials} (%s)' % benchmark_id.replace('_', '\\_'), fontsize=15)
+        ax.set_xlabel('\\textbf{Number of Trials} (%s)' % benchmark_id.replace('_', '\\_'), fontsize=label_fontsize)
         if plot_type == 'adtm':
-            ax.set_ylabel('\\textbf{ADTM}', fontsize=15)
+            ax.set_ylabel('\\textbf{ADTM}', fontsize=label_fontsize)
             plt.subplots_adjust(top=0.97, right=0.968, left=0.11, bottom=0.13)
         elif plot_type == 'ranking':
-            ax.set_ylabel('\\textbf{Average Rank}', fontsize=18)
+            ax.set_ylabel('\\textbf{Average Rank}', fontsize=label_fontsize)
             ax.set_ylim(1, len(methods))
             plt.subplots_adjust(top=0.97, right=0.968, left=0.11, bottom=0.13)
 
