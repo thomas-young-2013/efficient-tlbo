@@ -32,6 +32,7 @@ parser.add_argument('--test_mode', type=str, default='random')
 parser.add_argument('--trial_num', type=int, default=50)
 parser.add_argument('--init_num', type=int, default=0)
 parser.add_argument('--run_num', type=int, default=-1)
+parser.add_argument('--seed', type=int, default=42)
 parser.add_argument('--num_source_data', type=int, default=50)
 parser.add_argument('--num_source_problem', type=int, default=-1)
 parser.add_argument('--num_target_data', type=int, default=10000)
@@ -47,6 +48,7 @@ n_target_data = args.num_target_data
 num_random_data = args.num_random_data
 trial_num = args.trial_num
 init_num = args.init_num
+seed = args.seed
 run_num = args.run_num
 test_mode = args.test_mode
 baselines = args.methods.split(',')
@@ -123,7 +125,7 @@ if __name__ == "__main__":
     hpo_ids, hpo_data, random_test_data, meta_features = load_hpo_history()
     algo_name = 'liblinear_svc' if algo_id == 'linear' else algo_id
     config_space = get_configspace_instance(algo_id=algo_name)
-    np.random.seed(42)
+    np.random.seed(seed)
     seeds = np.random.randint(low=1, high=10000, size=len(hpo_ids))
     run_num = len(hpo_ids) if run_num == -1 else run_num
     num_source_problem = (len(hpo_ids) - 1) if num_source_problem == -1 else num_source_problem
