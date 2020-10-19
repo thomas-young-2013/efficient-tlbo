@@ -49,6 +49,7 @@ class TST(BaseFacade):
         w = self.w.copy()
         weight_str = ','.join([('%.2f' % item) for item in w])
         print('In iter-%d' % self.iteration_id)
+        self.target_weight.append(w[-1])
         print(weight_str)
         self.hist_ws.append(w)
         self.iteration_id += 1
