@@ -9,25 +9,27 @@ import matplotlib.ticker as ticker
 import matplotlib.lines as mlines
 import seaborn as sns
 
-sns.set_style(style='whitegrid')
+# sns.set_style(style='whitegrid')
 
 plt.rc('text', usetex=True)
 
-plt.rc('font', size=10.0, family='sans-serif')
+plt.rc('font', size=15.0, family='sans-serif')
 plt.rcParams['font.sans-serif'] = "Tahoma"
 
 plt.rcParams['text.latex.preamble'] = [r"\usepackage{amsmath}"]
 plt.rcParams["legend.frameon"] = True
 plt.rcParams["legend.facecolor"] = 'white'
 plt.rcParams["legend.edgecolor"] = 'gray'
-plt.rcParams["legend.fontsize"] = 10
+plt.rcParams["legend.fontsize"] = 12
+label_fontsize = 15
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--surrogate_type', type=str, default='rf')
+parser.add_argument('--metric', type=str, default='rank')
 parser.add_argument('--exp_id', type=str, default='exp1')
 parser.add_argument('--task_id', type=str, default='main')
 parser.add_argument('--algo_id', type=str, default='random_forest')
-parser.add_argument('--methods', type=str, default='notl,rgpe,es,rs')
+parser.add_argument('--methods', type=str, default='rs,notl,scot,rgpe,tst,tstm,pogpe,obtlv,sgpr')
 parser.add_argument('--data_dir', type=str, default='./data/exp_results/')
 parser.add_argument('--transfer_trials', type=int, default=50)
 parser.add_argument('--trial_num', type=int, default=50)
@@ -41,6 +43,7 @@ transfer_trials = args.transfer_trials
 run_trials = args.trial_num
 methods = args.methods.split(',')
 data_dir = args.data_dir
+metric = args.metric
 
 if exp_id == 'exp1':
     data_dir = 'data/exp_results/main_random_29_20000/'
@@ -145,9 +148,8 @@ if __name__ == "__main__":
     lw = 2
     ms = 6
     me = 5
-    plt.figure(figsize=(10, 4), dpi=100)
-    fig = plt.figure(1)
     color_dict, marker_dict, names_dict, method_ids = fetch_color_marker(methods)
+    fig, ax = plt.subplots()
     print(names_dict)
     method_list = list()
     _orders = list()
@@ -161,73 +163,72 @@ if __name__ == "__main__":
     methods = [item[0] for item in sorted(_methods, key=lambda x: x[1])]
     print(methods)
 
-    for _id, plot_type in enumerate(['ranking', 'adtm']):
-        adtm_dict = {}
-        num_ranking = np.inf
-        handles = list()
-        ax = plt.subplot(int('12%d' % (_id + 1)))
-        try:
+    adtm_dict = {}
+    num_ranking = np.inf
+    handles = list()
+    try:
+        for idx, method in enumerate(methods):
+            filename = '%s_%s_%d_%d_%s_%s.pkl' % (method, benchmark_id, transfer_trials,
+                                                  run_trials, surrogate_type, task_id)
+            path = os.path.join(data_dir, filename)
+            with open(path, 'rb')as f:
+                array = pkl.load(f)
+
+            label_name = r'\textbf{%s}' % names_dict[method]
+            x = list(range(len(array[1])))
+            if metric == 'adtm':
+                y = array[1][:, 1]
+                print(array[0].shape)
+                print(method, np.std(array[0], axis=0)[:, 1])
+                # print(x, y)
+                ax.plot(x, y, lw=lw,
+                        label=label_name, color=color_dict[method],
+                        marker=marker_dict[method], markersize=ms, markevery=me
+                        )
+
+                line = mlines.Line2D([], [], color=color_dict[method], marker=marker_dict[method],
+                                     markersize=ms, label=label_name)
+                handles.append(line)
+            elif metric == 'rank':
+                adtm_dict[method] = array[0]
+                num_ranking = len(array[0]) if len(array[0]) < num_ranking else num_ranking
+            else:
+                raise ValueError('Invalid metric - %s.' % metric)
+
+        if metric == 'rank':
+            ranking_dict = {method: [] for method in adtm_dict.keys()}
+            ranking_std_dict = {method: [] for method in adtm_dict.keys()}
+            for idx in range(len(x)):
+                mean_ranking_dict, std_ranking_dict = get_mean_ranking(adtm_dict, idx, num_ranking)
+                for method in adtm_dict.keys():
+                    ranking_dict[method].append(mean_ranking_dict[method])
+                    ranking_std_dict[method].append(std_ranking_dict[method])
             for idx, method in enumerate(methods):
-                filename = '%s_%s_%d_%d_%s_%s.pkl' % (method, benchmark_id, transfer_trials,
-                                                      run_trials, surrogate_type, task_id)
-                path = os.path.join(data_dir, filename)
-                with open(path, 'rb')as f:
-                    array = pkl.load(f)
-
                 label_name = r'\textbf{%s}' % names_dict[method]
-                x = list(range(len(array[1])))
-                if plot_type == 'adtm':
-                    y = array[1][:, 1]
-                    print(array[0].shape)
-                    print(method, np.std(array[0], axis=0)[:, 1])
-                    # print(x, y)
-                    ax.plot(x, y, lw=lw,
-                            label=label_name, color=color_dict[method],
-                            marker=marker_dict[method], markersize=ms, markevery=me
-                            )
+                ax.plot(x, ranking_dict[method], lw=lw,
+                        label=label_name, color=color_dict[method],
+                        marker=marker_dict[method], markersize=ms, markevery=me
+                        )
+                print('=' * 20)
+                print(method, ranking_std_dict[method])
+                line = mlines.Line2D([], [], color=color_dict[method], marker=marker_dict[method],
+                                     markersize=ms, label=label_name)
+                handles.append(line)
 
-                    line = mlines.Line2D([], [], color=color_dict[method], marker=marker_dict[method],
-                                         markersize=ms, label=label_name)
-                    handles.append(line)
-                elif plot_type == 'ranking':
-                    adtm_dict[method] = array[0]
-                    num_ranking = len(array[0]) if len(array[0]) < num_ranking else num_ranking
+    except Exception as e:
+        traceback.print_exc()
+        print(e)
 
-            if plot_type == 'ranking':
-                ranking_dict = {method: [] for method in adtm_dict.keys()}
-                ranking_std_dict = {method: [] for method in adtm_dict.keys()}
-                for idx in range(len(x)):
-                    mean_ranking_dict, std_ranking_dict = get_mean_ranking(adtm_dict, idx, num_ranking)
-                    for method in adtm_dict.keys():
-                        ranking_dict[method].append(mean_ranking_dict[method])
-                        ranking_std_dict[method].append(std_ranking_dict[method])
-                for idx, method in enumerate(methods):
-                    label_name = r'\textbf{%s}' % names_dict[method]
-                    ax.plot(x, ranking_dict[method], lw=lw,
-                            label=label_name, color=color_dict[method],
-                            marker=marker_dict[method], markersize=ms, markevery=me
-                            )
-                    print('=' * 20)
-                    print(method, ranking_std_dict[method])
-                    line = mlines.Line2D([], [], color=color_dict[method], marker=marker_dict[method],
-                                         markersize=ms, label=label_name)
-                    handles.append(line)
+    legend = ax.legend(handles=handles, loc=1, ncol=3)
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(5))
+    ax.set_xlabel('\\textbf{Number of Trials', fontsize=label_fontsize)
+    if metric == 'adtm':
+        ax.set_ylabel('\\textbf{ADTM}', fontsize=label_fontsize)
+        plt.subplots_adjust(top=0.97, right=0.968, left=0.11, bottom=0.13)
+    elif metric == 'rank':
+        ax.set_ylabel('\\textbf{Average Rank}', fontsize=label_fontsize)
+        # ax.set_ylim(1, len(methods))
+        plt.subplots_adjust(top=0.97, right=0.968, left=0.11, bottom=0.13)
 
-        except Exception as e:
-            traceback.print_exc()
-            print(e)
-
-        legend = ax.legend(handles=handles, loc=1, ncol=2)
-        label_fontsize = 12
-        ax.xaxis.set_major_locator(ticker.MultipleLocator(5))
-        ax.set_xlabel('\\textbf{Number of Trials} (%s)' % benchmark_id.replace('_', '\\_'), fontsize=label_fontsize)
-        if plot_type == 'adtm':
-            ax.set_ylabel('\\textbf{ADTM}', fontsize=label_fontsize)
-            plt.subplots_adjust(top=0.97, right=0.968, left=0.11, bottom=0.13)
-        elif plot_type == 'ranking':
-            ax.set_ylabel('\\textbf{Average Rank}', fontsize=label_fontsize)
-            ax.set_ylim(1, len(methods))
-            plt.subplots_adjust(top=0.97, right=0.968, left=0.11, bottom=0.13)
-
-    # plt.savefig('%s_%d_%d_%d_result.pdf' % (benchmark_id, runtime_limit, n_worker, rep_num))
+    plt.savefig('/home/thomas/Desktop/%s_%s_%d_result.pdf' % (exp_id, benchmark_id, run_trials))
     plt.show()

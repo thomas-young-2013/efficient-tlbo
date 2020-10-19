@@ -8,26 +8,18 @@ import numpy as np
 
 sys.path.append(os.getcwd())
 from tlbo.framework.smbo_offline import SMBO_OFFLINE
-from tlbo.facade.notl import NoTL
 from tlbo.facade.rgpe import RGPE
 from tlbo.facade.obtl_es import ES
-from tlbo.facade.obtl import OBTL
-from tlbo.facade.random_surrogate import RandomSearch
 from tlbo.facade.tst import TST
-from tlbo.facade.tstm import TSTM
 from tlbo.facade.pogpe import POGPE
-from tlbo.facade.stacking_gpr import SGPR
-from tlbo.facade.scot import SCoT
-from tlbo.facade.mklgp import MKLGP
 from tlbo.facade.obtl_variant import OBTLV
-from tlbo.facade.topo import TOPO
 from tlbo.config_space.space_instance import get_configspace_instance
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--task_id', type=str, default='main')
-parser.add_argument('--exp_id', type=str, default='main')
-parser.add_argument('--algo_id', type=str, default='random_forest')
-parser.add_argument('--methods', type=str, default='rgpe')
+parser.add_argument('--exp_id', type=str, default='source_etc')
+parser.add_argument('--algo_id', type=str, default='lightgbm')
+parser.add_argument('--methods', type=str, default='pogpe,tst,rgpe,obtlv')
 parser.add_argument('--surrogate_type', type=str, default='rf')
 parser.add_argument('--test_mode', type=str, default='random')
 parser.add_argument('--trial_num', type=int, default=50)
@@ -173,40 +165,22 @@ if __name__ == "__main__":
 
             if mth == 'rgpe':
                 surrogate_class = RGPE
-            elif mth == 'notl':
-                surrogate_class = NoTL
             elif mth == 'es':
                 surrogate_class = ES
-            elif mth == 'obtl':
-                surrogate_class = OBTL
             elif mth == 'obtlv':
                 surrogate_class = OBTLV
             elif mth == 'tst':
                 surrogate_class = TST
             elif mth == 'pogpe':
                 surrogate_class = POGPE
-            elif mth == 'sgpr':
-                surrogate_class = SGPR
-            elif mth == 'scot':
-                surrogate_class = SCoT
-            elif mth == 'mklgp':
-                surrogate_class = MKLGP
-            elif mth == 'rs':
-                surrogate_class = RandomSearch
-            elif mth == 'tstm':
-                surrogate_class = TSTM
-            elif mth == 'topo':
-                surrogate_class = TOPO
+            elif mth == 'tst':
+                surrogate_class = TST
             else:
                 raise ValueError('Invalid baseline name - %s.' % mth)
-            if mth not in ['mklgp', 'scot', 'tstm']:
-                surrogate = surrogate_class(config_space, source_hpo_data, target_hpo_data, seed,
-                                            surrogate_type=surrogate_type,
-                                            num_src_hpo_trial=n_src_data)
-            else:
-                surrogate = surrogate_class(config_space, source_hpo_data, target_hpo_data, seed,
-                                            surrogate_type=surrogate_type,
-                                            num_src_hpo_trial=n_src_data, metafeatures=dataset_meta_features)
+
+            surrogate = surrogate_class(config_space, source_hpo_data, target_hpo_data, seed,
+                                        surrogate_type=surrogate_type,
+                                        num_src_hpo_trial=n_src_data, only_source=True)
 
             smbo = SMBO_OFFLINE(target_hpo_data, config_space, surrogate,
                                 random_seed=seed, max_runs=trial_num,
@@ -218,16 +192,7 @@ if __name__ == "__main__":
                                 acq_func='ei')
 
             result = list()
-            rnd_target_perfs = [_perf for (_, _perf) in list(random_test_data[id].items())]
-            rnd_ymax, rnd_ymin = np.max(rnd_target_perfs), np.min(rnd_target_perfs)
-
             for _iter_id in range(trial_num):
-                # if surrogate.method_id == 'rs':
-                #     _perfs = rnd_target_perfs[:(_iter_id + 1)]
-                #     y_inc = np.min(_perfs)
-                #     adtm = (y_inc - rnd_ymin) / (rnd_ymax - rnd_ymin)
-                #     result.append([adtm, y_inc, 0.1])
-                # else:
                 config, _, perf, _ = smbo.iterate()
                 time_taken = time.time() - start_time
                 adtm, y_inc = smbo.get_adtm(), smbo.get_inc_y()

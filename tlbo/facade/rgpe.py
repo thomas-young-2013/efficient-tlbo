@@ -4,10 +4,11 @@ from tlbo.facade.base_facade import BaseFacade
 
 class RGPE(BaseFacade):
     def __init__(self, config_space, source_hpo_data, target_hp_configs, seed,
-                 surrogate_type='rf', num_src_hpo_trial=50):
+                 surrogate_type='rf', num_src_hpo_trial=50, only_source=False):
         super().__init__(config_space, source_hpo_data, seed, target_hp_configs,
                          surrogate_type=surrogate_type, num_src_hpo_trial=num_src_hpo_trial)
         self.method_id = 'rgpe'
+        self.only_source = only_source
         self.build_source_surrogates(normalize='standardize')
         # Weights for base surrogates and the target surrogate.
         self.w = [1. / self.K] * self.K + [0.]
@@ -118,8 +119,13 @@ class RGPE(BaseFacade):
             median = sorted(ranking_loss_caches[:, id])[int(self.num_sample * 0.5)]
             self.ignored_flag[id] = median > threshold
 
-        # self.w[:-1] = self.w[:-1]/np.sum(self.w[:-1])
-        # self.w[-1] = 0.
+        if self.only_source:
+            self.w[-1] = 0.
+            if np.sum(self.w) == 0:
+                self.w = [1. / self.K] * self.K + [0.]
+            else:
+                self.w[:-1] = np.array(self.w[:-1])/np.sum(self.w[:-1])
+
         print('=' * 20)
         w = self.w.copy()
         for id in range(self.K):

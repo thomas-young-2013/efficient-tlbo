@@ -8,12 +8,13 @@ _scale_method = 'standardize'
 
 class OBTLV(BaseFacade):
     def __init__(self, config_space, source_hpo_data, target_hp_configs, seed,
-                 surrogate_type='rf', num_src_hpo_trial=50, fusion_method='idp_lc'):
+                 surrogate_type='rf', num_src_hpo_trial=50, fusion_method='idp_lc', only_source=False):
         super().__init__(config_space, source_hpo_data, seed, target_hp_configs,
                          surrogate_type=surrogate_type, num_src_hpo_trial=num_src_hpo_trial)
         self.method_id = 'obtl_v'
         self.fusion_method = fusion_method
         self.build_source_surrogates(normalize=_scale_method)
+        self.only_source = only_source
         # Weights for base surrogates and the target surrogate.
         self.w = np.array([1. / self.K] * self.K + [0.])
         self.base_predictions = list()
@@ -64,13 +65,14 @@ class OBTLV(BaseFacade):
         w_source = self.w[:self.K]
         w_target = 0.
 
-        if instance_num >= self.min_num_y:
-            _t_pred_y, _ = self.predict_target_surrogate_cv(X, y)
-            _pred_y = np.c_[pred_y, _t_pred_y.reshape((-1, 1))]
-            w_target = self.compute_target_weight(np.mat(_pred_y), np.mat(y).T)
-            if instance_num >= 2 * self.min_num_y:
-                w_target = np.max([w_target, self.w[-1]])
-            w_source *= (1 - w_target)
+        if not self.only_source:
+            if instance_num >= self.min_num_y:
+                _t_pred_y, _ = self.predict_target_surrogate_cv(X, y)
+                _pred_y = np.c_[pred_y, _t_pred_y.reshape((-1, 1))]
+                w_target = self.compute_target_weight(np.mat(_pred_y), np.mat(y).T)
+                if instance_num >= 2 * self.min_num_y:
+                    w_target = np.max([w_target, self.w[-1]])
+                w_source *= (1 - w_target)
         w_new = np.asarray(list(w_source) + [w_target])
         rho = 0.6
         self.w = rho * w_new + (1 - rho) * self.w
