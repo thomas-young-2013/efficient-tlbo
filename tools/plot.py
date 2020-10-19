@@ -49,7 +49,9 @@ elif exp_id == 'exp2':
     data_dir = 'data/exp_results/main_random_5_20000/'
     run_trials = 75
 elif exp_id == 'exp3':
-    data_dir = 'data/exp_results/online/'
+    data_dir = 'data/exp_results/source_etc_random_5_20000/'
+    methods = ['tst', 'pogpe', 'rgpe', 'obtlv']
+    run_trials = 50
 elif exp_id == 'exp4':
     data_dir = 'data/exp_results/combination/'
 else:
