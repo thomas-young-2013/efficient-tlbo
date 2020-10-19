@@ -4,10 +4,11 @@ from tlbo.facade.base_facade import BaseFacade
 
 class TST(BaseFacade):
     def __init__(self, config_space, source_hpo_data, target_hp_configs, seed,
-                 surrogate_type='rf', num_src_hpo_trial=50, use_metafeatures=False, metafeatures=None):
+                 surrogate_type='rf', num_src_hpo_trial=50, use_metafeatures=False, metafeatures=None, only_source=False):
         super().__init__(config_space, source_hpo_data, seed, target_hp_configs,
                          surrogate_type=surrogate_type, num_src_hpo_trial=num_src_hpo_trial)
         self.method_id = 'tst'
+        self.only_source = only_source
         self.build_source_surrogates(normalize='scale')
         # Weights for base surrogates and the target surrogate.
         self.w = [0.75] * (self.K + 1)
@@ -44,6 +45,10 @@ class TST(BaseFacade):
                 tmp = self.meta_dist[_id] / self.bandwidth
             print(tmp)
             self.w[_id] = 0.75 * (1 - tmp * tmp) if tmp <= 1 else 0
+
+        if self.only_source:
+            self.w[-1] = 0.
+            self.w = np.array(self.w) / np.sum(self.w)
 
         print('=' * 20)
         w = self.w.copy()
