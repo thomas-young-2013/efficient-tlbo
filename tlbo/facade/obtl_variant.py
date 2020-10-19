@@ -42,7 +42,7 @@ class OBTLV(BaseFacade):
         idxs = list()
         for train_idx, val_idx in kf.split(X):
             idxs.extend(list(val_idx))
-            X_train, X_val, y_train, y_val = X[train_idx,:], X[val_idx,:], y[train_idx], y[val_idx]
+            X_train, X_val, y_train, y_val = X[train_idx, :], X[val_idx, :], y[train_idx], y[val_idx]
             model = self.build_single_surrogate(X_train, y_train, normalize=_scale_method)
             mu, var = model.predict(X_val)
             mu, var = mu.flatten(), var.flatten()
@@ -78,6 +78,7 @@ class OBTLV(BaseFacade):
         w = self.w.copy()
         weight_str = ','.join([('%.2f' % item) for item in w])
         print('In iter-%d' % self.iteration_id)
+        self.target_weight.append(w[-1])
         print(weight_str)
         self.hist_ws.append(w)
         self.iteration_id += 1
