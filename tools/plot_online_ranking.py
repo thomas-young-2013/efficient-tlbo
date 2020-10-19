@@ -30,6 +30,7 @@ parser.add_argument('--methods', type=str, default='notl,rgpe,es,rs')
 parser.add_argument('--data_dir', type=str, default='./data/exp_results/online')
 parser.add_argument('--transfer_trials', type=int, default=50)
 parser.add_argument('--trial_num', type=int, default=50)
+parser.add_argument('--rep_num', type=int, default=10)
 args = parser.parse_args()
 
 benchmark_id = args.algo_id
@@ -37,6 +38,7 @@ task_id = args.task_id
 surrogate_type = args.surrogate_type
 transfer_trials = args.transfer_trials
 run_trials = args.trial_num
+rep_num = args.rep_num
 methods = args.methods.split(',')
 data_dir = args.data_dir
 
@@ -60,11 +62,11 @@ def fetch_color_marker(m_list):
             fill_values(name, 2)
         elif name.startswith('rs') or name.startswith('obtlv-gpoe'):
             fill_values(name, 3)
-        elif name.startswith('tst') or name.startswith('obtlv'):
+        elif name.startswith('tst'):
             fill_values(name, 4)
         elif name.startswith('pogpe'):
             fill_values(name, 5)
-        elif name.startswith('sgpr'):
+        elif name.startswith('sgpr') or name.startswith('obtlv'):
             fill_values(name, 6)
         else:
             print(name)
@@ -112,30 +114,37 @@ if __name__ == "__main__":
     handles = list()
     ax = plt.subplot()
     try:
+        rep_dict = {}
+        for rep in range(rep_num):
+            for idx, method in enumerate(methods):
+                filename = '%s_%s_%d_%d_%s_%s_%d.pkl' % (method, benchmark_id, transfer_trials,
+                                                         run_trials, surrogate_type, task_id, rep)
+                if method.find('-') != -1:
+                    _data_dir += 'fusion'
+                else:
+                    _data_dir = data_dir
+                path = os.path.join(_data_dir, filename)
+                with open(path, 'rb')as f:
+                    array = pkl.load(f)
+
+                adtm_array = [x[-1][0] for x in array[0]]
+
+                adtm_dict[method] = adtm_array
+
+                num_ranking = len(adtm_array)
+
+            # print(adtm_dict)
+            rank_dict = get_ranking(adtm_dict, num_ranking)
+
+            for key in rank_dict:
+                if key not in rep_dict:
+                    rep_dict[key] = np.array(rank_dict[key])
+                else:
+                    rep_dict[key] = (np.array(rep_dict[key]) * rep + np.array(rank_dict[key])) / (rep + 1)
+
         for idx, method in enumerate(methods):
-            filename = '%s_%s_%d_%d_%s_%s.pkl' % (method, benchmark_id, transfer_trials,
-                                                  run_trials, surrogate_type, task_id)
-            if method.find('-') != -1:
-                _data_dir += 'fusion'
-            else:
-                _data_dir = data_dir
-            path = os.path.join(_data_dir, filename)
-            with open(path, 'rb')as f:
-                array = pkl.load(f)
-
-            adtm_array = [x[-1][0] for x in array[0]]
-
-            adtm_dict[method] = adtm_array
-
-            num_ranking = len(adtm_array)
-
-        # print(adtm_dict)
-        rank_dict = get_ranking(adtm_dict, num_ranking)
-        # print(rank_dict)
-
-        for idx, method in enumerate(methods):
-            x = list(range(1, num_ranking + 1))
-            y = rank_dict[method]
+            x = list(range(num_ranking))
+            y = rep_dict[method]
             # print(x, y)
             label_name = r'\textbf{%s}' % (method.upper().replace('_', '-'))
             ax.plot(x, y, lw=lw,

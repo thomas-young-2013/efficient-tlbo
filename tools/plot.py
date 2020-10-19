@@ -52,6 +52,8 @@ elif exp_id == 'exp3':
     data_dir = 'data/exp_results/online/'
 elif exp_id == 'exp4':
     data_dir = 'data/exp_results/combination/'
+elif exp_id == 'exp5':
+    data_dir = 'data/exp_results/warm_random_29_20000'
 else:
     raise ValueError('Invalid exp id - %s.' % exp_id)
 
@@ -80,7 +82,7 @@ def fetch_color_marker(m_list):
                 fill_values(name, 2)
             else:
                 raise ValueError('Unexpected method - %s.' % name)
-        elif exp_id in ['exp1', 'exp2']:
+        elif exp_id in ['exp1', 'exp2', 'exp5']:
             if name == 'rs':
                 fill_values(name, 1)
             elif name == 'notl':
