@@ -4,13 +4,14 @@ from tlbo.facade.base_facade import BaseFacade
 
 class RGPE(BaseFacade):
     def __init__(self, config_space, source_hpo_data, target_hp_configs, seed,
-                 surrogate_type='rf', num_src_hpo_trial=50):
+                 surrogate_type='rf', num_src_hpo_trial=50, only_source=False):
         super().__init__(config_space, source_hpo_data, seed, target_hp_configs,
                          surrogate_type=surrogate_type, num_src_hpo_trial=num_src_hpo_trial)
         self.method_id = 'rgpe'
+        self.only_source = only_source
         self.build_source_surrogates(normalize='standardize')
         # Weights for base surrogates and the target surrogate.
-        self.w = [1./self.K]*self.K + [0.]
+        self.w = [1. / self.K] * self.K + [0.]
         self.scale = True
         # self.num_sample = 100
         self.num_sample = 50
@@ -56,9 +57,9 @@ class RGPE(BaseFacade):
                 fold_num = instance_num // k_fold_num
                 for i in range(k_fold_num):
                     row_indexs = list(range(instance_num))
-                    bound = (instance_num - i*fold_num) if i == (k_fold_num-1) else fold_num
+                    bound = (instance_num - i * fold_num) if i == (k_fold_num - 1) else fold_num
                     for index in range(bound):
-                        del row_indexs[i*fold_num]
+                        del row_indexs[i * fold_num]
 
                     if (y[row_indexs] == y[row_indexs[0]]).all():
                         y[row_indexs[0]] += 1e-4
@@ -94,8 +95,8 @@ class RGPE(BaseFacade):
                     fold_num = instance_num // k_fold_num
                     for fold in range(k_fold_num):
                         sampled_y = np.random.normal(cached_mu_list[fold], cached_var_list[fold])
-                        bound = instance_num if fold == (k_fold_num-1) else (fold+1)*fold_num
-                        for i in range(fold_num*fold, bound):
+                        bound = instance_num if fold == (k_fold_num - 1) else (fold + 1) * fold_num
+                        for i in range(fold_num * fold, bound):
                             for j in range(instance_num):
                                 if (y[i] < y[j]) ^ (sampled_y[i] < sampled_y[j]):
                                     rank_loss += 1
@@ -118,8 +119,13 @@ class RGPE(BaseFacade):
             median = sorted(ranking_loss_caches[:, id])[int(self.num_sample * 0.5)]
             self.ignored_flag[id] = median > threshold
 
-        # self.w[:-1] = self.w[:-1]/np.sum(self.w[:-1])
-        # self.w[-1] = 0.
+        if self.only_source:
+            self.w[-1] = 0.
+            if np.sum(self.w) == 0:
+                self.w = [1. / self.K] * self.K + [0.]
+            else:
+                self.w[:-1] = np.array(self.w[:-1])/np.sum(self.w[:-1])
+
         print('=' * 20)
         w = self.w.copy()
         for id in range(self.K):
@@ -127,6 +133,7 @@ class RGPE(BaseFacade):
                 w[id] = 0.
         weight_str = ','.join([('%.2f' % item) for item in w])
         print('In iter-%d' % self.iteration_id)
+        self.target_weight.append(w[-1])
         print(weight_str)
         self.hist_ws.append(w)
         self.iteration_id += 1

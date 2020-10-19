@@ -45,6 +45,8 @@ class BaseFacade(object):
         self.meta_feature_scaler = None
         self.meta_feature_imputer = None
 
+        self.target_weight = []
+
     @abc.abstractmethod
     def train(self, X: np.ndarray, y: np.ndarray):
         pass

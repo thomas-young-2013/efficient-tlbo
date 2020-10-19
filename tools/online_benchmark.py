@@ -38,6 +38,8 @@ parser.add_argument('--num_source_problem', type=int, default=-1)
 parser.add_argument('--num_target_data', type=int, default=10000)
 parser.add_argument('--num_random_data', type=int, default=20000)
 parser.add_argument('--rep_num', type=int, default=10)
+parser.add_argument('--start_id', type=int, default=0)
+
 args = parser.parse_args()
 algo_id = args.algo_id
 exp_id = args.exp_id
@@ -52,6 +54,7 @@ init_num = args.init_num
 run_num = args.run_num
 test_mode = args.test_mode
 rep_num = args.rep_num
+start_id = args.start_id
 baselines = args.methods.split(',')
 
 data_dir = 'data/hpo_data/'
@@ -142,8 +145,10 @@ if __name__ == "__main__":
     num_source_problem = (len(_hpo_ids) - 1) if num_source_problem == -1 else num_source_problem
 
     idx = np.arange(len(_hpo_data))
+    for rep in range(start_id):
+        np.random.shuffle(idx)
 
-    for rep in range(rep_num):
+    for rep in range(start_id, rep_num):
         np.random.shuffle(idx)
         assert len(_hpo_ids) == len(_hpo_data) and len(_hpo_ids) == len(_meta_features)
         hpo_data = [_hpo_data[id] for id in idx]

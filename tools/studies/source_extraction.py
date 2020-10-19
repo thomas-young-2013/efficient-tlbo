@@ -7,44 +7,49 @@ import argparse
 import numpy as np
 
 sys.path.append(os.getcwd())
-from tlbo.facade.obtl import OBTL
-from tlbo.facade.obtl_variant import OBTLV
-from tlbo.facade.obtl_es import ES
-from tlbo.facade.rgpe import RGPE
 from tlbo.framework.smbo_offline import SMBO_OFFLINE
+from tlbo.facade.rgpe import RGPE
+from tlbo.facade.obtl_es import ES
+from tlbo.facade.tst import TST
+from tlbo.facade.pogpe import POGPE
+from tlbo.facade.obtl_variant import OBTLV
 from tlbo.config_space.space_instance import get_configspace_instance
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--task_id', type=str, default='main')
-parser.add_argument('--algo_id', type=str, default='random_forest')
-parser.add_argument('--methods', type=str, default='rgpe')
+parser.add_argument('--exp_id', type=str, default='source_etc')
+parser.add_argument('--algo_id', type=str, default='lightgbm')
+parser.add_argument('--methods', type=str, default='pogpe,tst,rgpe,obtlv')
 parser.add_argument('--surrogate_type', type=str, default='rf')
-parser.add_argument('--trial_num', type=int, default=75)
+parser.add_argument('--test_mode', type=str, default='random')
+parser.add_argument('--trial_num', type=int, default=50)
 parser.add_argument('--init_num', type=int, default=0)
 parser.add_argument('--run_num', type=int, default=-1)
 parser.add_argument('--seed', type=int, default=42)
 parser.add_argument('--num_source_data', type=int, default=50)
 parser.add_argument('--num_source_problem', type=int, default=-1)
+parser.add_argument('--num_target_data', type=int, default=10000)
+parser.add_argument('--num_random_data', type=int, default=20000)
+parser.add_argument('--save_weight', type=str, default='false')
 args = parser.parse_args()
 algo_id = args.algo_id
+exp_id = args.exp_id
 task_id = args.task_id
 surrogate_type = args.surrogate_type
 n_src_data = args.num_source_data
 num_source_problem = args.num_source_problem
+n_target_data = args.num_target_data
+num_random_data = args.num_random_data
 trial_num = args.trial_num
 init_num = args.init_num
+seed = args.seed
 run_num = args.run_num
+test_mode = args.test_mode
+save_weight = args.save_weight
 baselines = args.methods.split(',')
-meta_seed = args.seed
+
 data_dir = 'data/hpo_data/'
-exp_dir = 'data/exp_results/fusion/'
-test_mode = 'random'
-n_target_data = 10000
-num_random_data = 20000
-
-if not os.path.exists(exp_dir):
-    os.makedirs(exp_dir)
-
+assert test_mode in ['bo', 'random']
 if init_num > 0:
     enable_init_design = True
 else:
@@ -115,10 +120,19 @@ if __name__ == "__main__":
     hpo_ids, hpo_data, random_test_data, meta_features = load_hpo_history()
     algo_name = 'liblinear_svc' if algo_id == 'linear' else algo_id
     config_space = get_configspace_instance(algo_id=algo_name)
-    np.random.seed(meta_seed)
+    np.random.seed(seed)
     seeds = np.random.randint(low=1, high=10000, size=len(hpo_ids))
     run_num = len(hpo_ids) if run_num == -1 else run_num
     num_source_problem = (len(hpo_ids) - 1) if num_source_problem == -1 else num_source_problem
+    # if 'rs' in baselines and len(random_test_data) == 0:
+    #     raise ValueError('The random test data is empty!')
+
+    # Exp folder to save results.
+    exp_dir = 'data/exp_results/%s_%s_%d_%d/' % (exp_id, test_mode, num_source_problem, num_random_data)
+    if not os.path.exists(exp_dir):
+        os.makedirs(exp_dir)
+
+    target_weights = []
 
     for mth in baselines:
         exp_results = list()
@@ -128,10 +142,11 @@ if __name__ == "__main__":
             start_time = time.time()
 
             # Generate the source and target hpo data.
-            # target_hpo_data = hpo_data[id]
-            dataset_meta_features = list()
-            target_hpo_data = random_test_data[id]
-            source_hpo_data = list()
+            source_hpo_data, dataset_meta_features = list(), list()
+            if test_mode == 'bo':
+                target_hpo_data = hpo_data[id]
+            else:
+                target_hpo_data = random_test_data[id]
             for _id, data in enumerate(hpo_data):
                 if _id != id:
                     source_hpo_data.append(data)
@@ -148,20 +163,24 @@ if __name__ == "__main__":
             # Add the meta-features in the target problem.
             dataset_meta_features.append(meta_features[id])
 
-            if mth.startswith('obtlv'):
-                surrogate_class = OBTLV
-            elif mth.startswith('obtl'):
-                surrogate_class = OBTL
-            elif mth.startswith('es'):
-                surrogate_class = ES
-            elif mth.startswith('rgpe'):
+            if mth == 'rgpe':
                 surrogate_class = RGPE
+            elif mth == 'es':
+                surrogate_class = ES
+            elif mth == 'obtlv':
+                surrogate_class = OBTLV
+            elif mth == 'tst':
+                surrogate_class = TST
+            elif mth == 'pogpe':
+                surrogate_class = POGPE
+            elif mth == 'tst':
+                surrogate_class = TST
             else:
                 raise ValueError('Invalid baseline name - %s.' % mth)
-            _fusion = mth.split('-')[1]
+
             surrogate = surrogate_class(config_space, source_hpo_data, target_hpo_data, seed,
                                         surrogate_type=surrogate_type,
-                                        num_src_hpo_trial=n_src_data, fusion_method=_fusion)
+                                        num_src_hpo_trial=n_src_data, only_source=True)
 
             smbo = SMBO_OFFLINE(target_hpo_data, config_space, surrogate,
                                 random_seed=seed, max_runs=trial_num,
@@ -171,13 +190,12 @@ if __name__ == "__main__":
                                 enable_init_design=enable_init_design,
                                 initial_runs=init_num,
                                 acq_func='ei')
+
             result = list()
-            for _ in range(trial_num):
+            for _iter_id in range(trial_num):
                 config, _, perf, _ = smbo.iterate()
-                # print(config, perf)
                 time_taken = time.time() - start_time
                 adtm, y_inc = smbo.get_adtm(), smbo.get_inc_y()
-                # print('%.3f - %.3f' % (adtm, y_inc))
                 result.append([adtm, y_inc, time_taken])
             exp_results.append(result)
             print('In %d-th problem: %s' % (id, hpo_ids[id]), 'adtm, y_inc', result[-1])
@@ -193,8 +211,16 @@ if __name__ == "__main__":
                 source_ids = [item[0] for item in enumerate(list(np.mean(weights, axis=0))) if item[1] >= 1e-2]
                 print('Source problems used', source_ids)
 
+            # Save the running results on the fly with overwriting.
             if run_num == len(hpo_ids):
-                mth_file = '%s_%s_%d_%d_%s_%s_%d.pkl' % (mth, algo_id, n_src_data, trial_num, surrogate_type, task_id, meta_seed)
+                mth_file = '%s_%s_%d_%d_%s_%s.pkl' % (mth, algo_id, n_src_data, trial_num, surrogate_type, task_id)
                 with open(exp_dir + mth_file, 'wb') as f:
                     data = [np.array(exp_results), np.mean(exp_results, axis=0)]
                     pickle.dump(data, f)
+
+                if save_weight == 'true':
+                    mth_file = 'w_%s_%s_%d_%d_%s_%s.pkl' % (
+                        mth, algo_id, n_src_data, trial_num, surrogate_type, task_id)
+                    with open(exp_dir + mth_file, 'wb') as f:
+                        data = target_weights
+                        pickle.dump(data, f)
