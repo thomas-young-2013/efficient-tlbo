@@ -208,6 +208,10 @@ class SMBO_OFFLINE(BasePipeline):
 
         if self.random_configuration_chooser.check(self.iteration_id):
             config = self.sample_random_config()[0]
+            if len(self.model.target_weight) == 0:
+                self.model.target_weight.append(0.)
+            else:
+                self.model.target_weight.append(self.model.target_weight[-1])
             return config
         else:
             start_time = time.time()
