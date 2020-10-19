@@ -35,7 +35,7 @@ trial_num = args.trial_num
 init_num = args.init_num
 run_num = args.run_num
 baselines = args.methods.split(',')
-seed = args.seed
+meta_seed = args.seed
 data_dir = 'data/hpo_data/'
 exp_dir = 'data/exp_results/fusion/'
 test_mode = 'random'
@@ -115,7 +115,7 @@ if __name__ == "__main__":
     hpo_ids, hpo_data, random_test_data, meta_features = load_hpo_history()
     algo_name = 'liblinear_svc' if algo_id == 'linear' else algo_id
     config_space = get_configspace_instance(algo_id=algo_name)
-    np.random.seed(seed)
+    np.random.seed(meta_seed)
     seeds = np.random.randint(low=1, high=10000, size=len(hpo_ids))
     run_num = len(hpo_ids) if run_num == -1 else run_num
     num_source_problem = (len(hpo_ids) - 1) if num_source_problem == -1 else num_source_problem
@@ -194,7 +194,7 @@ if __name__ == "__main__":
                 print('Source problems used', source_ids)
 
             if run_num == len(hpo_ids):
-                mth_file = '%s_%s_%d_%d_%s_%s_%d.pkl' % (mth, algo_id, n_src_data, trial_num, surrogate_type, task_id, seed)
+                mth_file = '%s_%s_%d_%d_%s_%s_%d.pkl' % (mth, algo_id, n_src_data, trial_num, surrogate_type, task_id, meta_seed)
                 with open(exp_dir + mth_file, 'wb') as f:
                     data = [np.array(exp_results), np.mean(exp_results, axis=0)]
                     pickle.dump(data, f)
