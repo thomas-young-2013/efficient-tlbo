@@ -20,8 +20,8 @@ plt.rcParams['text.latex.preamble'] = [r"\usepackage{amsmath}"]
 plt.rcParams["legend.frameon"] = True
 plt.rcParams["legend.facecolor"] = 'white'
 plt.rcParams["legend.edgecolor"] = 'gray'
-plt.rcParams["legend.fontsize"] = 12
-label_fontsize = 15
+plt.rcParams["legend.fontsize"] = 15
+label_fontsize = 20
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--surrogate_type', type=str, default='rf')
@@ -221,16 +221,19 @@ if __name__ == "__main__":
         traceback.print_exc()
         print(e)
 
-    legend = ax.legend(handles=handles, loc=1, ncol=3)
+    if exp_id == 'exp3':
+        legend = ax.legend(handles=handles, loc=1, ncol=2)
+    else:
+        legend = ax.legend(handles=handles, loc=1, ncol=3)
     ax.xaxis.set_major_locator(ticker.MultipleLocator(5))
     ax.set_xlabel('\\textbf{Number of Trials', fontsize=label_fontsize)
     if metric == 'adtm':
         ax.set_ylabel('\\textbf{ADTM}', fontsize=label_fontsize)
-        plt.subplots_adjust(top=0.97, right=0.968, left=0.11, bottom=0.13)
+        plt.subplots_adjust(top=0.97, right=0.968, left=0.16, bottom=0.13)
     elif metric == 'rank':
         ax.set_ylabel('\\textbf{Average Rank}', fontsize=label_fontsize)
         # ax.set_ylim(1, len(methods))
         plt.subplots_adjust(top=0.97, right=0.968, left=0.11, bottom=0.13)
 
-    plt.savefig(data_dir + '%s_%s_%d_result.pdf' % (exp_id, benchmark_id, run_trials))
+    plt.savefig(data_dir + '%s_%s_%d_%s_result.pdf' % (exp_id, benchmark_id, run_trials, metric))
     plt.show()

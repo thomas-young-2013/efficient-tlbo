@@ -222,16 +222,16 @@ if __name__ == "__main__":
             rnd_ymax, rnd_ymin = np.max(rnd_target_perfs), np.min(rnd_target_perfs)
 
             for _iter_id in range(trial_num):
-                # if surrogate.method_id == 'rs':
-                #     _perfs = rnd_target_perfs[:(_iter_id + 1)]
-                #     y_inc = np.min(_perfs)
-                #     adtm = (y_inc - rnd_ymin) / (rnd_ymax - rnd_ymin)
-                #     result.append([adtm, y_inc, 0.1])
-                # else:
-                config, _, perf, _ = smbo.iterate()
-                time_taken = time.time() - start_time
-                adtm, y_inc = smbo.get_adtm(), smbo.get_inc_y()
-                result.append([adtm, y_inc, time_taken])
+                if surrogate.method_id == 'rs':
+                    _perfs = rnd_target_perfs[:(_iter_id + 1)]
+                    y_inc = np.min(_perfs)
+                    adtm = (y_inc - rnd_ymin) / (rnd_ymax - rnd_ymin)
+                    result.append([adtm, y_inc, 0.1])
+                else:
+                    config, _, perf, _ = smbo.iterate()
+                    time_taken = time.time() - start_time
+                    adtm, y_inc = smbo.get_adtm(), smbo.get_inc_y()
+                    result.append([adtm, y_inc, time_taken])
             exp_results.append(result)
             print('In %d-th problem: %s' % (id, hpo_ids[id]), 'adtm, y_inc', result[-1])
             print('min/max', smbo.y_min, smbo.y_max)
