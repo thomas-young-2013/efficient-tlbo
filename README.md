@@ -59,7 +59,7 @@ bank32nh | 8192 | 32 | 2
 The benchmark includes:
 
 1. The validation balanced accuracy of <20k configurations (10k sampled by random search + 
-<10k sampled by Bayesian Optimization) on 30 datasets for each algorithm. 
+<10k sampled by Bayesian Optimization) for each algorithm on each dataset. 
 Saved as a dictionary **<configuration, balanced accuracy>** in *{dataset_name}-{algorithm_name}-random-20000.pkl*
 2. The meta-features of 30 datasets.
  Saved as a dictionary **<dataset_name, meta-feature>** in *dataset_metafeatures.pkl*
