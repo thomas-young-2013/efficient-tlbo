@@ -8,7 +8,7 @@ import numpy as np
 
 sys.path.append(os.getcwd())
 from tlbo.facade.obtl import OBTL
-from tlbo.facade.obtl_variant import OBTLV
+from tlbo.facade.topo_variant1 import OBTLV
 from tlbo.facade.obtl_es import ES
 from tlbo.facade.rgpe import RGPE
 from tlbo.framework.smbo_offline import SMBO_OFFLINE

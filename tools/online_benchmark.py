@@ -20,7 +20,7 @@ from tlbo.facade.pogpe import POGPE
 from tlbo.facade.stacking_gpr import SGPR
 from tlbo.facade.scot import SCoT
 from tlbo.facade.mklgp import MKLGP
-from tlbo.facade.obtl_variant import OBTLV
+from tlbo.facade.topo_variant1 import OBTLV
 from tlbo.config_space.space_instance import get_configspace_instance
 
 parser = argparse.ArgumentParser()

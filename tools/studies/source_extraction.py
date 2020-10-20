@@ -12,7 +12,7 @@ from tlbo.facade.rgpe import RGPE
 from tlbo.facade.obtl_es import ES
 from tlbo.facade.tst import TST
 from tlbo.facade.pogpe import POGPE
-from tlbo.facade.obtl_variant import OBTLV
+from tlbo.facade.topo_variant1 import OBTLV
 from tlbo.config_space.space_instance import get_configspace_instance
 
 parser = argparse.ArgumentParser()
