@@ -18,7 +18,7 @@ plt.rcParams['text.latex.preamble'] = [r"\usepackage{amsmath}"]
 plt.rcParams["legend.frameon"] = True
 plt.rcParams["legend.facecolor"] = 'white'
 plt.rcParams["legend.edgecolor"] = 'gray'
-plt.rcParams["legend.fontsize"] = 16
+plt.rcParams["legend.fontsize"] = 15
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--surrogate_type', type=str, default='rf')
@@ -42,39 +42,47 @@ data_dir = args.data_dir
 def fetch_color_marker(m_list):
     color_dict = dict()
     marker_dict = dict()
-    color_list = ['red', 'royalblue', 'green', 'brown', 'purple', 'orange', 'yellowgreen', 'purple']
-    markers = ['s', '^', '*', 'v', 'o', 'p', '2', 'x']
+    names_dict = dict()
+    method_ids = ['obtl', 'rs', 'notl', 'scot', 'sgpr', 'tst', 'tstm', 'pogpe', 'rgpe']
+    method_names = ['TOPO', 'RS', 'I-GP', 'SCoT', 'SGPR', 'TST', 'TST-M', 'POGPE', 'RGPE']
+    color_list = ['red', 'orchid', 'royalblue', 'brown', 'purple', 'orange', 'yellowgreen', 'navy', 'green', 'black']
+    markers = ['s', '^', '*', 'v', 'o', 'p', '2', 'x', '+', 'H']
 
     def fill_values(name, idx):
         color_dict[name] = color_list[idx]
         marker_dict[name] = markers[idx]
+        names_dict[name] = method_names[idx]
 
     for name in m_list:
-        if name.startswith('es') or name.startswith('obtl-idp_lc') or name == 'obtl':
-            fill_values(name, 0)
-        elif name.startswith('notl') or name.startswith('obtl-no_var'):
+        if name == 'rs':
             fill_values(name, 1)
-        elif name.startswith('rgpe') or name.startswith('obtl-gpoe'):
+        elif name == 'notl':
             fill_values(name, 2)
-        elif name.startswith('rs') or name.startswith('obtlv-gpoe') or name.startswith('obtlv'):
+        elif name == 'scot':
             fill_values(name, 3)
-        elif name.startswith('tst'):
+        elif name == 'sgpr':
             fill_values(name, 4)
-        elif name.startswith('pogpe'):
+        elif name == 'tst':
             fill_values(name, 5)
-        elif name.startswith('sgpr'):
+        elif name == 'tstm':
             fill_values(name, 6)
-        else:
-            print(name)
+        elif name == 'pogpe':
             fill_values(name, 7)
-    return color_dict, marker_dict
+        elif name == 'rgpe':
+            fill_values(name, 8)
+        else:
+            if name.startswith('es') or name.startswith('obtl'):
+                fill_values(name, 0)
+            else:
+                raise ValueError('Invalid method - %s.' % name)
+    return color_dict, marker_dict, names_dict, method_ids
 
 
 if __name__ == "__main__":
     lw = 2
-    ms = 4
+    ms = 6
     me = 5
-    color_dict, marker_dict = fetch_color_marker(methods)
+    color_dict, marker_dict, _, _ = fetch_color_marker(methods)
 
     adtm_dict = {}
     handles = list()
@@ -100,14 +108,15 @@ if __name__ == "__main__":
                     _method = method
                 label_name = r'\textbf{%s}' % (_method.upper().replace('_', '-'))
 
-                if method=='obtlv':
+                if method == 'obtlv':
                     print(array)
-                y = array[0]
+                y = array[5]
 
             else:
+                label_name = r'\textbf{%s}' % ('pogpe'.upper().replace('_', '-'))
                 y = [0.5] * (run_trials - 3)
 
-            x = list(range(1, run_trials - 2))
+            x = list(range(0, run_trials - 3))
 
             # print(x, y)
             ax.plot(x, y, lw=lw,
@@ -121,17 +130,17 @@ if __name__ == "__main__":
     except Exception as e:
         print(e)
 
-    legend = ax.legend(handles=handles, loc=1, ncol=3)
+    legend = ax.legend(handles=handles, loc=2, ncol=2)
 
     ax.xaxis.set_major_locator(ticker.MultipleLocator(5))
     # ax.yaxis.set_major_locator(ticker.LogLocator(base=10.0))
 
-    ax.set_xlabel('\\textbf{N-th Trial} (%s)' % benchmark_id.replace('_', '\\_'), fontsize=15)
-    ax.set_ylabel('\\textbf{Target Weight}', fontsize=15)
+    ax.set_xlabel('\\textbf{Number of Trials}', fontsize=20)
+    ax.set_ylabel('\\textbf{Target Weight}', fontsize=20)
 
-    ax.set_xlim(0, len(x) + 1)
+    # ax.set_xlim(0, len(x) + 1)
     ax.set_ylim(0, 1)
     ax.grid(False)
     plt.subplots_adjust(top=0.97, right=0.968, left=0.11, bottom=0.13)
-    # plt.savefig('weight.pdf')
+    plt.savefig('weight_rf.pdf')
     plt.show()

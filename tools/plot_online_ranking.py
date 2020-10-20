@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import matplotlib.lines as mlines
 import seaborn as sns
+from scipy.stats import rankdata
 
 sns.set_style(style='whitegrid')
 
@@ -74,6 +75,35 @@ def fetch_color_marker(m_list):
     return color_dict, marker_dict
 
 
+# def get_ranking(adtm_dict, num_ranking):
+#     ranking_dict = {method: [] for method in adtm_dict.keys()}
+#     for i in range(num_ranking):
+#         _rank_dict = {}
+#         value_dict = {}
+#         for method in adtm_dict.keys():
+#             value_dict[method] = adtm_dict[method][i]
+#
+#         sorted_item = sorted(value_dict.items(), key=lambda k: k[1])
+#         cur_rank = 0
+#         rank_gap = 1
+#         for _idx, item in enumerate(sorted_item):
+#             if cur_rank == 0:
+#                 cur_rank += 1
+#                 _rank_dict[item[0]] = cur_rank
+#             else:
+#                 if item[1] == sorted_item[_idx - 1][1]:
+#                     _rank_dict[item[0]] = cur_rank
+#                     rank_gap += 1
+#                 else:
+#                     cur_rank += rank_gap
+#                     rank_gap = 1
+#                     _rank_dict[item[0]] = cur_rank
+#         counter = Counter(_rank_dict.values())
+#         for method in adtm_dict.keys():
+#             ranking_dict[method].append(
+#                 (_rank_dict[method] * 2 + counter[_rank_dict[method]] - 1) / 2)
+#     return ranking_dict
+
 def get_ranking(adtm_dict, num_ranking):
     ranking_dict = {method: [] for method in adtm_dict.keys()}
     for i in range(num_ranking):
@@ -99,8 +129,7 @@ def get_ranking(adtm_dict, num_ranking):
                     _rank_dict[item[0]] = cur_rank
         counter = Counter(_rank_dict.values())
         for method in adtm_dict.keys():
-            ranking_dict[method].append(
-                (_rank_dict[method] * 2 + counter[_rank_dict[method]] - 1) / 2)
+            ranking_dict[method].append(_rank_dict[method])
     return ranking_dict
 
 
@@ -141,6 +170,22 @@ if __name__ == "__main__":
                     rep_dict[key] = np.array(rank_dict[key])
                 else:
                     rep_dict[key] = (np.array(rep_dict[key]) * rep + np.array(rank_dict[key])) / (rep + 1)
+
+        _array = []
+        for method in methods:
+            _array.append(rep_dict[method])
+        _array = np.array(_array)
+
+        rank_array = []
+        for id in range(_array.shape[1]):
+            c = _array[:, id]
+            rank_array.append(rankdata(c, method='min'))
+        rank_array = np.array(rank_array)
+
+        for id in range(rank_array.shape[1]):
+            c = rank_array[:, id]
+            print(Counter(c))
+        exit()
 
         for idx, method in enumerate(methods):
             x = list(range(num_ranking))
