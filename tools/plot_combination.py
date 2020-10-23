@@ -20,8 +20,8 @@ plt.rcParams['text.latex.preamble'] = [r"\usepackage{amsmath}"]
 plt.rcParams["legend.frameon"] = True
 plt.rcParams["legend.facecolor"] = 'white'
 plt.rcParams["legend.edgecolor"] = 'gray'
-plt.rcParams["legend.fontsize"] = 12
-label_fontsize = 15
+plt.rcParams["legend.fontsize"] = 15
+label_fontsize = 20
 
 
 parser = argparse.ArgumentParser()
@@ -33,6 +33,7 @@ parser.add_argument('--methods', type=str, default='obtlv-gpoe,obtlv-idp_lc,obtl
 parser.add_argument('--data_dir', type=str, default='./data/exp_results/')
 parser.add_argument('--transfer_trials', type=int, default=50)
 parser.add_argument('--trial_num', type=int, default=75)
+parser.add_argument('--metric', type=str, default='rank')
 args = parser.parse_args()
 
 benchmark_id = args.algo_id
@@ -43,8 +44,9 @@ transfer_trials = args.transfer_trials
 run_trials = args.trial_num
 methods = args.methods.split(',')
 data_dir = args.data_dir
+metric = args.metric
 
-data_dir = 'data/exp_results/combination/'
+data_dir = 'data/exp_results/fusion/'
 
 
 def fetch_color_marker(m_list):
@@ -108,78 +110,78 @@ if __name__ == "__main__":
     lw = 2
     ms = 6
     me = 5
-    plt.figure(figsize=(10, 4), dpi=100)
-    fig = plt.figure(1)
     color_dict, marker_dict, names_dict = fetch_color_marker(methods)
-    print(names_dict)
+    fig, ax = plt.subplots()
 
-    for _id, plot_type in enumerate(['ranking', 'adtm']):
-        adtm_dict = {}
-        num_ranking = np.inf
-        handles = list()
-        ax = plt.subplot(int('12%d' % (_id + 1)))
-        try:
+    adtm_dict = {}
+    num_ranking = np.inf
+    handles = list()
+    try:
+        for idx, method in enumerate(methods):
+            filename = '%s_%s_%d_%d_%s_%s.pkl' % (method, benchmark_id, transfer_trials,
+                                                  run_trials, surrogate_type, task_id)
+            path = os.path.join(data_dir, filename)
+            with open(path, 'rb')as f:
+                array = pkl.load(f)
+
+            label_name = r'\textbf{%s}' % names_dict[method]
+            x = list(range(len(array[1])))
+            if metric == 'adtm':
+                y = array[1][:, 1]
+                print(array[0].shape)
+                print(method, np.std(array[0], axis=0)[:, 1])
+                # print(x, y)
+                ax.plot(x, y, lw=lw,
+                        label=label_name, color=color_dict[method],
+                        marker=marker_dict[method], markersize=ms, markevery=me
+                        )
+
+                line = mlines.Line2D([], [], color=color_dict[method], marker=marker_dict[method],
+                                     markersize=ms, label=label_name)
+                handles.append(line)
+            elif metric == 'rank':
+                adtm_dict[method] = array[0]
+                num_ranking = len(array[0]) if len(array[0]) < num_ranking else num_ranking
+            else:
+                raise ValueError('Invalid metric - %s.' % metric)
+
+        if metric == 'rank':
+            ranking_dict = {method: [] for method in adtm_dict.keys()}
+            ranking_std_dict = {method: [] for method in adtm_dict.keys()}
+            for idx in range(len(x)):
+                mean_ranking_dict, std_ranking_dict = get_mean_ranking(adtm_dict, idx, num_ranking)
+                for method in adtm_dict.keys():
+                    ranking_dict[method].append(mean_ranking_dict[method])
+                    ranking_std_dict[method].append(std_ranking_dict[method])
             for idx, method in enumerate(methods):
-                filename = '%s_%s_%d_%d_%s_%s.pkl' % (method, benchmark_id, transfer_trials,
-                                                      run_trials, surrogate_type, task_id)
-                path = os.path.join(data_dir, filename)
-                with open(path, 'rb')as f:
-                    array = pkl.load(f)
-
                 label_name = r'\textbf{%s}' % names_dict[method]
-                x = list(range(len(array[1])))
-                if plot_type == 'adtm':
-                    y = array[1][:, 1]
-                    print(array[0].shape)
-                    print(method, np.std(array[0], axis=0)[:, 1])
-                    # print(x, y)
-                    ax.plot(x, y, lw=lw,
-                            label=label_name, color=color_dict[method],
-                            marker=marker_dict[method], markersize=ms, markevery=me
-                            )
+                ax.plot(x, ranking_dict[method], lw=lw,
+                        label=label_name, color=color_dict[method],
+                        marker=marker_dict[method], markersize=ms, markevery=me
+                        )
+                print('=' * 20)
+                print(method, ranking_std_dict[method])
+                line = mlines.Line2D([], [], color=color_dict[method], marker=marker_dict[method],
+                                     markersize=ms, label=label_name)
+                handles.append(line)
 
-                    line = mlines.Line2D([], [], color=color_dict[method], marker=marker_dict[method],
-                                         markersize=ms, label=label_name)
-                    handles.append(line)
-                elif plot_type == 'ranking':
-                    adtm_dict[method] = array[0]
-                    num_ranking = len(array[0]) if len(array[0]) < num_ranking else num_ranking
+    except Exception as e:
+        traceback.print_exc()
+        print(e)
 
-            if plot_type == 'ranking':
-                ranking_dict = {method: [] for method in adtm_dict.keys()}
-                ranking_std_dict = {method: [] for method in adtm_dict.keys()}
-                for idx in range(len(x)):
-                    mean_ranking_dict, std_ranking_dict = get_mean_ranking(adtm_dict, idx, num_ranking)
-                    for method in adtm_dict.keys():
-                        ranking_dict[method].append(mean_ranking_dict[method])
-                        ranking_std_dict[method].append(std_ranking_dict[method])
-                for idx, method in enumerate(methods):
-                    label_name = r'\textbf{%s}' % names_dict[method]
-                    ax.plot(x, ranking_dict[method], lw=lw,
-                            label=label_name, color=color_dict[method],
-                            marker=marker_dict[method], markersize=ms, markevery=me
-                            )
-                    print('=' * 20)
-                    print(method, ranking_std_dict[method])
-                    line = mlines.Line2D([], [], color=color_dict[method], marker=marker_dict[method],
-                                         markersize=ms, label=label_name)
-                    handles.append(line)
+    legend = ax.legend(handles=handles, loc=1, ncol=3)
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(5))
+    ax.set_xlabel('\\textbf{Number of Trials', fontsize=label_fontsize)
+    if metric == 'adtm':
+        ax.set_ylabel('\\textbf{ADTM}', fontsize=label_fontsize)
+        if benchmark_id == 'lightgbm':
+            plt.subplots_adjust(top=0.97, right=0.968, left=0.16, bottom=0.13)
+        else:
+            plt.subplots_adjust(top=0.97, right=0.968, left=0.15, bottom=0.13)
+    elif metric == 'rank':
+        ax.set_ylabel('\\textbf{Average Rank}', fontsize=label_fontsize)
+        # ax.set_ylim(1, len(methods))
+        plt.subplots_adjust(top=0.97, right=0.968, left=0.11, bottom=0.13)
 
-        except Exception as e:
-            traceback.print_exc()
-            print(e)
-
-        legend = ax.legend(handles=handles, loc=1, ncol=2)
-        label_fontsize = 12
-        ax.xaxis.set_major_locator(ticker.MultipleLocator(5))
-        ax.set_xlabel('\\textbf{Number of Trials}', fontsize=label_fontsize)
-        if plot_type == 'adtm':
-            ax.set_ylabel('\\textbf{ADTM}', fontsize=label_fontsize)
-            plt.subplots_adjust(top=0.97, right=0.968, left=0.11, bottom=0.13)
-        elif plot_type == 'ranking':
-            ax.set_ylabel('\\textbf{Average Rank}', fontsize=label_fontsize)
-            ax.set_ylim(1, len(methods))
-            plt.subplots_adjust(top=0.97, right=0.968, left=0.11, bottom=0.13)
-
-    plt.savefig('/home/thomas/Desktop/combination_%s_%s_%d_result.pdf' % (exp_id, benchmark_id, run_trials))
+    plt.savefig(data_dir + 'combination_%s_%s_%d_%s_result.pdf' % (exp_id, benchmark_id, run_trials, metric))
     plt.show()

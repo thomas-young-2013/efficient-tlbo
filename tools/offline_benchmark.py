@@ -19,8 +19,9 @@ from tlbo.facade.pogpe import POGPE
 from tlbo.facade.stacking_gpr import SGPR
 from tlbo.facade.scot import SCoT
 from tlbo.facade.mklgp import MKLGP
-from tlbo.facade.obtl_variant import OBTLV
-from tlbo.facade.topo import TOPO
+from tlbo.facade.topo_variant1 import OBTLV
+from tlbo.facade.topo_variant2 import TOPO
+from tlbo.facade.topo_variant3 import TOPO_V3
 from tlbo.config_space.space_instance import get_configspace_instance
 
 parser = argparse.ArgumentParser()
@@ -196,7 +197,9 @@ if __name__ == "__main__":
             elif mth == 'tstm':
                 surrogate_class = TSTM
             elif mth == 'topo':
-                surrogate_class = TOPO
+                surrogate_class = OBTLV
+            elif mth == 'topo_v3':
+                surrogate_class = TOPO_V3
             else:
                 raise ValueError('Invalid baseline name - %s.' % mth)
             if mth not in ['mklgp', 'scot', 'tstm']:
@@ -222,16 +225,16 @@ if __name__ == "__main__":
             rnd_ymax, rnd_ymin = np.max(rnd_target_perfs), np.min(rnd_target_perfs)
 
             for _iter_id in range(trial_num):
-                # if surrogate.method_id == 'rs':
-                #     _perfs = rnd_target_perfs[:(_iter_id + 1)]
-                #     y_inc = np.min(_perfs)
-                #     adtm = (y_inc - rnd_ymin) / (rnd_ymax - rnd_ymin)
-                #     result.append([adtm, y_inc, 0.1])
-                # else:
-                config, _, perf, _ = smbo.iterate()
-                time_taken = time.time() - start_time
-                adtm, y_inc = smbo.get_adtm(), smbo.get_inc_y()
-                result.append([adtm, y_inc, time_taken])
+                if surrogate.method_id == 'rs':
+                    _perfs = rnd_target_perfs[:(_iter_id + 1)]
+                    y_inc = np.min(_perfs)
+                    adtm = (y_inc - rnd_ymin) / (rnd_ymax - rnd_ymin)
+                    result.append([adtm, y_inc, 0.1])
+                else:
+                    config, _, perf, _ = smbo.iterate()
+                    time_taken = time.time() - start_time
+                    adtm, y_inc = smbo.get_adtm(), smbo.get_inc_y()
+                    result.append([adtm, y_inc, time_taken])
             exp_results.append(result)
             print('In %d-th problem: %s' % (id, hpo_ids[id]), 'adtm, y_inc', result[-1])
             print('min/max', smbo.y_min, smbo.y_max)
@@ -245,6 +248,8 @@ if __name__ == "__main__":
                 print(trans(np.mean(weights, axis=0)))
                 source_ids = [item[0] for item in enumerate(list(np.mean(weights, axis=0))) if item[1] >= 1e-2]
                 print('Source problems used', source_ids)
+
+            target_weights.append(surrogate.target_weight)
 
             # Save the running results on the fly with overwriting.
             if run_num == len(hpo_ids):

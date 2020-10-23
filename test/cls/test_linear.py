@@ -1,5 +1,6 @@
 from functools import partial
 import numpy as np
+import sys
 from ConfigSpace.configuration_space import ConfigurationSpace
 from ConfigSpace.hyperparameters import UniformFloatHyperparameter, \
     CategoricalHyperparameter, Constant
@@ -7,6 +8,8 @@ from ConfigSpace.forbidden import ForbiddenEqualsClause, \
     ForbiddenAndConjunction
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import balanced_accuracy_score
+
+sys.path.append('../soln-ml')
 from solnml.datasets.utils import load_data
 
 import pickle

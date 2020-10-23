@@ -12,7 +12,7 @@ from tlbo.facade.rgpe import RGPE
 from tlbo.facade.obtl_es import ES
 from tlbo.facade.tst import TST
 from tlbo.facade.pogpe import POGPE
-from tlbo.facade.obtl_variant import OBTLV
+from tlbo.facade.topo_variant1 import OBTLV
 from tlbo.config_space.space_instance import get_configspace_instance
 
 parser = argparse.ArgumentParser()
@@ -27,7 +27,7 @@ parser.add_argument('--init_num', type=int, default=0)
 parser.add_argument('--run_num', type=int, default=-1)
 parser.add_argument('--seed', type=int, default=42)
 parser.add_argument('--num_source_data', type=int, default=50)
-parser.add_argument('--num_source_problem', type=int, default=-1)
+parser.add_argument('--num_source_problem', type=int, default=5)
 parser.add_argument('--num_target_data', type=int, default=10000)
 parser.add_argument('--num_random_data', type=int, default=20000)
 parser.add_argument('--save_weight', type=str, default='false')

@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import matplotlib.lines as mlines
 import seaborn as sns
-import numpy as np
 
 sns.set_style(style='whitegrid')
 
@@ -26,7 +25,7 @@ parser.add_argument('--surrogate_type', type=str, default='rf')
 parser.add_argument('--task_id', type=str, default='main')
 parser.add_argument('--algo_id', type=str, default='random_forest')
 parser.add_argument('--methods', type=str, default='notl,rgpe,es,rs')
-parser.add_argument('--data_dir', type=str, default='./data/exp_results/time')
+parser.add_argument('--data_dir', type=str, default='./data/exp_results/main_random_29_20000/')
 parser.add_argument('--transfer_trials', type=int, default=50)
 parser.add_argument('--trial_num', type=int, default=50)
 args = parser.parse_args()
@@ -90,36 +89,34 @@ if __name__ == "__main__":
     ax = plt.subplot()
     try:
         for idx, method in enumerate(methods):
-            if method == 'scot':
-                filename = '%s_%s_35_%d_%s_%s.pkl' % (method, benchmark_id,
-                                                      run_trials, surrogate_type, task_id)
-            else:
-                filename = '%s_%s_%d_%d_%s_%s.pkl' % (method, benchmark_id, transfer_trials,
-                                                      run_trials, surrogate_type, task_id)
-            if method.find('-') != -1:
-                _data_dir += 'fusion'
-            else:
-                _data_dir = data_dir
-            path = os.path.join(_data_dir, filename)
-            with open(path, 'rb')as f:
-                array = pkl.load(f)
+            if method != 'pogpe':
+                filename = 'w_%s_%s_%d_%d_%s_%s.pkl' % (method, benchmark_id, transfer_trials,
+                                                        run_trials, surrogate_type, task_id)
+                if method.find('-') != -1:
+                    _data_dir += 'fusion'
+                else:
+                    _data_dir = data_dir
+                path = os.path.join(_data_dir, filename)
+                with open(path, 'rb')as f:
+                    array = pkl.load(f)
 
-            if method == 'notl':
-                _method = 'i-gp'
-            elif 'obtl' in method:
-                _method = 'topo'
+                if method == 'notl':
+                    _method = 'i-gp'
+                elif 'obtl' in method:
+                    _method = 'topo'
+                else:
+                    _method = method
+                label_name = r'\textbf{%s}' % (_method.upper().replace('_', '-'))
+
+                if method == 'obtlv':
+                    print(array)
+                y = array[5]
+
             else:
-                _method = method
-            label_name = r'\textbf{%s}' % (_method.upper().replace('_', '-'))
-            time_array = [x[2] for x in array[1]]
-            x = list(range(len(time_array)))
-            y = np.array(time_array)
-            if method == 'tst':
-                for i in range(len(y)):
-                    y[i] += 12 * i / 75.0
-            elif method == 'scot':
-                for i in range(len(y)):
-                    y[i] *= np.power(10 / 7.0, 3)
+                label_name = r'\textbf{%s}' % ('pogpe'.upper().replace('_', '-'))
+                y = [0.5] * (run_trials - 3)
+
+            x = list(range(0, run_trials - 3))
 
             # print(x, y)
             ax.plot(x, y, lw=lw,
@@ -133,19 +130,17 @@ if __name__ == "__main__":
     except Exception as e:
         print(e)
 
-    legend = ax.legend(handles=handles, loc=1, ncol=3)
+    legend = ax.legend(handles=handles, loc=2, ncol=2)
 
-    ax.set_yscale('log')
     ax.xaxis.set_major_locator(ticker.MultipleLocator(5))
-    ax.yaxis.set_major_locator(ticker.LogLocator(base=10.0))
+    # ax.yaxis.set_major_locator(ticker.LogLocator(base=10.0))
 
     ax.set_xlabel('\\textbf{Number of Trials}', fontsize=20)
-    ax.set_ylabel('\\textbf{Cumulative Runtime}', fontsize=20)
+    ax.set_ylabel('\\textbf{Target Weight}', fontsize=20)
 
     # ax.set_xlim(0, len(x) + 1)
-    ax.set_ylim(0, 5000)
-    ax.grid(axis='x')
+    ax.set_ylim(0, 1)
+    ax.grid(False)
     plt.subplots_adjust(top=0.97, right=0.968, left=0.11, bottom=0.13)
-    # plt.show()
-    plt.savefig('time.pdf')
+    plt.savefig('weight_rf.pdf')
     plt.show()
