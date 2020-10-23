@@ -1,5 +1,6 @@
 from functools import partial
 import numpy as np
+import sys
 from ConfigSpace.configuration_space import ConfigurationSpace
 from ConfigSpace.hyperparameters import UniformFloatHyperparameter, \
     CategoricalHyperparameter, Constant, UnParametrizedHyperparameter, UniformIntegerHyperparameter
@@ -7,6 +8,8 @@ from ConfigSpace.forbidden import ForbiddenEqualsClause, \
     ForbiddenAndConjunction
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import balanced_accuracy_score
+
+sys.path.append('../soln-ml')
 from solnml.datasets.utils import load_data
 
 import pickle
@@ -61,60 +64,71 @@ def check_for_bool(p):
 
 def get_cs():
     cs = ConfigurationSpace()
-    n_estimators = UniformFloatHyperparameter("n_estimators", 100, 1000, default_value=500, q=50)
-    num_leaves = UniformIntegerHyperparameter("num_leaves", 31, 2047, default_value=128)
-    max_depth = Constant('max_depth', 15)
-    learning_rate = UniformFloatHyperparameter("learning_rate", 1e-3, 0.3, default_value=0.1, log=True)
-    min_child_samples = UniformIntegerHyperparameter("min_child_samples", 5, 30, default_value=20)
-    subsample = UniformFloatHyperparameter("subsample", 0.7, 1, default_value=1, q=0.1)
-    colsample_bytree = UniformFloatHyperparameter("colsample_bytree", 0.7, 1, default_value=1, q=0.1)
-    cs.add_hyperparameters([n_estimators, num_leaves, max_depth, learning_rate, min_child_samples, subsample,
-                            colsample_bytree])
+
+    n_estimators = UniformIntegerHyperparameter(
+        name="n_estimators", lower=50, upper=500, default_value=50, log=False)
+    learning_rate = UniformFloatHyperparameter(
+        name="learning_rate", lower=0.01, upper=2, default_value=0.1, log=True)
+    algorithm = CategoricalHyperparameter(
+        name="algorithm", choices=["SAMME.R", "SAMME"], default_value="SAMME.R")
+    max_depth = UniformIntegerHyperparameter(
+        name="max_depth", lower=2, upper=8, default_value=3, log=False)
+
+    cs.add_hyperparameters([n_estimators, learning_rate, algorithm, max_depth])
     return cs
 
 
 def eval_func(params, x, y):
     params = params.get_dictionary()
-    model = LightGBM(**params)
+    model = AdaboostClassifier(**params)
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, stratify=y, random_state=1)
     model.fit(x_train, y_train)
     y_pred = model.predict(x_test)
     return 1 - balanced_accuracy_score(y_test, y_pred)
 
 
-class LightGBM:
-    def __init__(self, n_estimators, learning_rate, num_leaves, max_depth, min_child_samples,
-                 subsample, colsample_bytree, random_state=None):
-        self.n_estimators = int(n_estimators)
-        self.learning_rate = learning_rate
-        self.num_leaves = num_leaves
-        self.max_depth = max_depth
-        self.subsample = subsample
-        self.min_child_samples = min_child_samples
-        self.colsample_bytree = colsample_bytree
+class AdaboostClassifier:
 
-        self.n_jobs = 1
+    def __init__(self, n_estimators, learning_rate, algorithm, max_depth,
+                 random_state=None):
+        self.n_estimators = n_estimators
+        self.learning_rate = learning_rate
+        self.algorithm = algorithm
         self.random_state = random_state
+        self.max_depth = max_depth
         self.estimator = None
 
-    def fit(self, X, y):
-        from lightgbm import LGBMClassifier
-        self.estimator = LGBMClassifier(num_leaves=self.num_leaves,
-                                        max_depth=self.max_depth,
-                                        learning_rate=self.learning_rate,
-                                        n_estimators=self.n_estimators,
-                                        min_child_samples=self.min_child_samples,
-                                        subsample=self.subsample,
-                                        colsample_bytree=self.colsample_bytree,
-                                        random_state=self.random_state,
-                                        n_jobs=self.n_jobs)
-        self.estimator.fit(X, y)
+    def fit(self, X, Y, sample_weight=None):
+        import sklearn.tree
+        from sklearn.ensemble import AdaBoostClassifier
+
+        self.n_estimators = int(self.n_estimators)
+        self.learning_rate = float(self.learning_rate)
+        self.max_depth = int(self.max_depth)
+        base_estimator = sklearn.tree.DecisionTreeClassifier(max_depth=self.max_depth)
+
+        estimator = AdaBoostClassifier(
+            base_estimator=base_estimator,
+            n_estimators=self.n_estimators,
+            learning_rate=self.learning_rate,
+            algorithm=self.algorithm,
+            random_state=self.random_state
+        )
+
+        estimator.fit(X, Y, sample_weight=sample_weight)
+
+        self.estimator = estimator
         return self
 
     def predict(self, X):
         if self.estimator is None:
-            raise NotImplementedError()
+            raise NotImplementedError
         return self.estimator.predict(X)
+
+    def predict_proba(self, X):
+        if self.estimator is None:
+            raise NotImplementedError()
+        return self.estimator.predict_proba(X)
 
 
 dataset_list = dataset_str.split(',')
@@ -130,5 +144,5 @@ for dataset in dataset_list:
     eval = partial(eval_func, x=_x, y=_y)
     bo = BO(eval, cs, max_runs=_run_count, time_limit_per_trial=600, sample_strategy=mode, rng=np.random.RandomState(1))
     bo.run()
-    with open('logs/%s-lightgbm-%s-%d.pkl' % (dataset, mode, run_count), 'wb')as f:
+    with open('logs/%s-adaboost-%s-%d.pkl' % (dataset, mode, run_count), 'wb')as f:
         pickle.dump(bo.get_history().data, f)
