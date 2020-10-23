@@ -21,6 +21,7 @@ from tlbo.facade.scot import SCoT
 from tlbo.facade.mklgp import MKLGP
 from tlbo.facade.topo_variant1 import OBTLV
 from tlbo.facade.topo_variant2 import TOPO
+from tlbo.facade.topo_variant3 import TOPO_V3
 from tlbo.config_space.space_instance import get_configspace_instance
 
 parser = argparse.ArgumentParser()
@@ -197,6 +198,8 @@ if __name__ == "__main__":
                 surrogate_class = TSTM
             elif mth == 'topo':
                 surrogate_class = OBTLV
+            elif mth == 'topo_v3':
+                surrogate_class = TOPO_V3
             else:
                 raise ValueError('Invalid baseline name - %s.' % mth)
             if mth not in ['mklgp', 'scot', 'tstm']:
