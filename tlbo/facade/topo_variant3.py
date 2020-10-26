@@ -72,6 +72,7 @@ class TOPO_V3(BaseFacade):
             status, x = self.learn_weights(np.mat(_pred_y), np.mat(y).T)
             w_source, w_target = x[:-1], x[-1]
             if status:
+                w_target = np.max([w_target, 0.3])
                 if instance_num >= 2 * self.min_num_y:
                     w_target = np.max([w_target, self.w[-1]])
                     w_source *= (1 - w_target)
