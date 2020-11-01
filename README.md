@@ -1,4 +1,4 @@
-# TOPO: Efficient Two-Phase Transfer Learning Method for Hyperparameter Optimization
+# TOPO: Efficient and Scalable Model Re-optimizations via Two-Phase Transfer Learning
 
 
 ## Requirements Installation
