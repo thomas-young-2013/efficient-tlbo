@@ -15,12 +15,12 @@ pip install -r requirement.txt --user
 If failed, try installing Numpy, Scipy and Cython first.
 
 ## Benchmark
-The benchmark mentioned in the paper stores in *hpo_data.zip* under the root directory. The zipped file contains 451 files (450 files storing observations + 1 file storing meta-features). To use the benchmark, make directory *./data/hpo_data* and move all the pickle files into  *./data/hpo_data*
-
+The experiment data used in this paper is available at Google drive now. ([download link here](https://drive.google.com/drive/folders/1gRKT3uIOiLs8I2TiZSlBj2LWbNlqI5ya))
+The zipped file contains 451 files (450 files including history observations of 4 ML algorithms on 30 datasets + 1 file storing the meta-features of 30 datasets).
+To use the benchmark data, please make directory *./data/hpo_data* in the root directory of this project and move all the pickle files into the new folder.
 ***
 
-The datasets used in the benchmark are as follows:
-
+30 OpenML datasets used in the benchmark are as follows:
 Name | Rows | Columns | Categories
 --- | - | - | - 
 balloon | 2001 | 1 | 2 
