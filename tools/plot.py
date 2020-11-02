@@ -46,7 +46,10 @@ data_dir = args.data_dir
 metric = args.metric
 
 if exp_id == 'exp1':
-    data_dir = 'data/exp_results/main_random_29_20000/'
+    if benchmark_id == 'adaboost':
+        data_dir = 'data/exp_results/main_random_27_20000/'
+    else:
+        data_dir = 'data/exp_results/main_random_29_20000/'
     run_trials = 75
 elif exp_id == 'exp2':
     data_dir = 'data/exp_results/main_random_5_20000/'
@@ -92,7 +95,7 @@ def fetch_color_marker(m_list):
                 fill_values(name, 1)
             elif name == 'notl':
                 fill_values(name, 2)
-            elif name == 'scot':
+            elif name == 'scot' or name == 'topo_v3':
                 fill_values(name, 3)
             elif name == 'sgpr':
                 fill_values(name, 4)

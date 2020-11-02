@@ -11,7 +11,7 @@ class TOPO_V3(BaseFacade):
                  surrogate_type='rf', num_src_hpo_trial=50, fusion_method='idp_lc'):
         super().__init__(config_space, source_hpo_data, seed, target_hp_configs,
                          surrogate_type=surrogate_type, num_src_hpo_trial=num_src_hpo_trial)
-        self.method_id = 'topo_1phase'
+        self.method_id = 'topo_2phase'
         self.fusion_method = fusion_method
         self.build_source_surrogates(normalize=_scale_method)
         # Weights for base surrogates and the target surrogate.
@@ -70,16 +70,15 @@ class TOPO_V3(BaseFacade):
             _pred_y, _ = self.predict_target_surrogate_cv(X, y)
             _pred_y = np.c_[pred_y, _pred_y.reshape((-1, 1))]
             status, x = self.learn_weights(np.mat(_pred_y), np.mat(y).T)
-            w_source, w_target = self.w[:-1], self.w[-1]
+            w_source, w_target = x[:-1], x[-1]
             if status:
-                self.w = x
+                w_target = np.max([w_target, 0.3])
                 if instance_num >= 2 * self.min_num_y:
                     w_target = np.max([w_target, self.w[-1]])
                     w_source *= (1 - w_target)
-                w_new = np.asarray(list(w_source) + [w_target])
+            w_new = np.asarray(list(w_source) + [w_target])
 
-        rho = 0.75
-        if w_new is not None:
+            rho = 1.0
             self.w = rho * w_new + (1 - rho) * self.w
 
         w = self.w.copy()
