@@ -158,5 +158,5 @@ for dataset in dataset_list:
     eval = partial(eval_func, x=_x, y=_y)
     bo = BO(eval, cs, max_runs=_run_count, time_limit_per_trial=600, sample_strategy=mode, rng=np.random.RandomState(1))
     bo.run()
-    with open('logs/rgs_%s-linear-%s-%d.pkl' % (dataset, mode, run_count), 'wb')as f:
+    with open('logs/rgs_%s-liblinear_svr-%s-%d.pkl' % (dataset, mode, run_count), 'wb')as f:
         pickle.dump(bo.get_history().data, f)
