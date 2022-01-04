@@ -7,12 +7,10 @@ import argparse
 import numpy as np
 
 sys.path.append(os.getcwd())
-from tlbo.framework.smbo_offline import SMBO_OFFLINE
 from tlbo.facade.notl import NoTL
 from tlbo.facade.rgpe import RGPE
 from tlbo.facade.obtl_es import ES
 from tlbo.facade.obtl import OBTL
-from tlbo.facade.random_surrogate import RandomSearch
 from tlbo.facade.tst import TST
 from tlbo.facade.tstm import TSTM
 from tlbo.facade.pogpe import POGPE
@@ -22,6 +20,9 @@ from tlbo.facade.mklgp import MKLGP
 from tlbo.facade.topo_variant1 import OBTLV
 from tlbo.facade.topo_variant2 import TOPO
 from tlbo.facade.topo_variant3 import TOPO_V3
+from tlbo.facade.random_surrogate import RandomSearch
+from tlbo.framework.smbo_offline import SMBO_OFFLINE
+from tlbo.framework.smbo_sst import SMBO_SEARCH_SPACE_TRANSFER
 from tlbo.config_space.space_instance import get_configspace_instance
 
 parser = argparse.ArgumentParser()
@@ -211,7 +212,16 @@ if __name__ == "__main__":
                                             surrogate_type=surrogate_type,
                                             num_src_hpo_trial=n_src_data, metafeatures=dataset_meta_features)
 
-            smbo = SMBO_OFFLINE(target_hpo_data, config_space, surrogate,
+            # smbo = SMBO_OFFLINE(target_hpo_data, config_space, surrogate,
+            #                     random_seed=seed, max_runs=trial_num,
+            #                     source_hpo_data=source_hpo_data,
+            #                     num_src_hpo_trial=n_src_data,
+            #                     surrogate_type=surrogate_type,
+            #                     enable_init_design=enable_init_design,
+            #                     initial_runs=init_num,
+            #                     acq_func='ei')
+
+            smbo = SMBO_SEARCH_SPACE_TRANSFER(target_hpo_data, config_space, surrogate,
                                 random_seed=seed, max_runs=trial_num,
                                 source_hpo_data=source_hpo_data,
                                 num_src_hpo_trial=n_src_data,

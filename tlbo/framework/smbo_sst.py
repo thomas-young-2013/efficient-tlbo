@@ -67,6 +67,10 @@ class SMBO_SEARCH_SPACE_TRANSFER(BasePipeline):
         self.config_space.seed(self.random_seed)
         np.random.seed(self.random_seed)
         self.model = surrogate_model
+        assert self.model.method_id == 'rgpe'
+        self.acquisition_function = EI(self.model)
+        self.space_classifier = None
+        self.build_classifier()
 
         # Set the parameter in metric.
         self.ys = list(self.target_hpo_measurements.values())
@@ -202,3 +206,84 @@ class SMBO_SEARCH_SPACE_TRANSFER(BasePipeline):
                 print('This is a config for warm-start!')
                 return self.initial_configurations[_config_num]
 
+        start_time = time.time()
+        self.model.train(X, Y)
+        print('Training surrogate model took %.3f' % (time.time() - start_time))
+
+        y_, _, _ = zero_mean_unit_var_normalization(Y)
+        incumbent_value = np.min(y_)
+
+        if self.acq_func == 'ei':
+            self.acquisition_function.update(model=self.model, eta=incumbent_value,
+                                             num_data=len(self.history_container.data))
+        else:
+            raise ValueError('invalid acquisition function ~ %s.' % self.acq_func)
+
+        X_ALL = convert_configurations_to_array(self.configuration_list)
+        y_pred = list()
+        for _clf in self.space_classifier:
+            y_pred.append(_clf.predict(X_ALL))
+        y_pred = np.max(y_pred, axis=0)
+        X_candidate = list()
+        for _idx, _flag in enumerate(y_pred):
+            if _flag == 1:
+                X_candidate.append(self.configuration_list[_idx])
+        print('After space transfer, the candidate space size is %d.' % len(X_candidate))
+        assert len(X_candidate) > 0
+
+        acq_optimizer = OfflineSearch(X_candidate,
+                                      self.acquisition_function,
+                                      self.config_space,
+                                      rng=np.random.RandomState(self.random_seed)
+                                      )
+
+        start_time = time.time()
+        sorted_configs = acq_optimizer.maximize(
+            runhistory=self.history_container,
+            num_points=1
+        )
+        print('optimizing acq func took', time.time() - start_time)
+        for _config in sorted_configs:
+            if _config not in (self.configurations + self.failed_configurations):
+                return _config
+        raise ValueError('The configuration in the SET (%d) is over' % len(self.configuration_list))
+
+    def build_classifier(self):
+        # Train the binary classifier.
+        print('start to train binary classifier.')
+        start_time = time.time()
+        self.space_classifier = list()
+        normalize = 'standardize'
+        for hpo_evaluation_data in self.source_hpo_data:
+            print('.', end='')
+            _X, _y = list(), list()
+            for _config, _config_perf in hpo_evaluation_data.items():
+                _X.append(_config)
+                _y.append(_config_perf)
+            X = convert_configurations_to_array(_X)
+            y = np.array(_y, dtype=np.float64)
+            X = X[:self.num_src_hpo_trial]
+            y = y[:self.num_src_hpo_trial]
+
+            if normalize == 'standardize':
+                if (y == y[0]).all():
+                    y[0] += 1e-4
+                y, _, _ = zero_mean_unit_var_normalization(y)
+            elif normalize == 'scale':
+                if (y == y[0]).all():
+                    y[0] += 1e-4
+                y, _, _ = zero_one_normalization(y)
+                y = 2 * y - 1.
+            else:
+                raise ValueError('Invalid parameter in norm.')
+
+            percentile = np.percentile(y, 50)
+            space_label = np.array(y) <= percentile
+            print(space_label)
+            from sklearn.pipeline import make_pipeline
+            from sklearn.preprocessing import StandardScaler
+            from sklearn.svm import SVC
+            clf = make_pipeline(StandardScaler(), SVC(gamma='auto'))
+            clf.fit(X, space_label)
+            self.space_classifier.append(clf)
+        print('Building base classifier took %.3fs.' % (time.time() - start_time))
