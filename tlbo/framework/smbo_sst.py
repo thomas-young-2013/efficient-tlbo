@@ -219,11 +219,19 @@ class SMBO_SEARCH_SPACE_TRANSFER(BasePipeline):
         else:
             raise ValueError('invalid acquisition function ~ %s.' % self.acq_func)
 
+        # Do task selection.
+        weights = self.model.w[:-1]
+        assert len(weights) == len(self.space_classifier)
+        task_indexes = np.argsort(weights)[-5:]
+        task_indexes = [idx_ for idx_ in task_indexes if weights[idx_] > 0.]
+
         X_ALL = convert_configurations_to_array(self.configuration_list)
         y_pred = list()
-        for _clf in self.space_classifier:
-            y_pred.append(_clf.predict(X_ALL))
+        for _idx, _clf in enumerate(self.space_classifier):
+            if _idx in task_indexes:
+                y_pred.append(_clf.predict(X_ALL))
         y_pred = np.max(y_pred, axis=0)
+
         X_candidate = list()
         for _idx, _flag in enumerate(y_pred):
             if _flag == 1:
@@ -279,7 +287,7 @@ class SMBO_SEARCH_SPACE_TRANSFER(BasePipeline):
 
             percentile = np.percentile(y, 50)
             space_label = np.array(y) <= percentile
-            print(space_label)
+            # print(space_label)
             from sklearn.pipeline import make_pipeline
             from sklearn.preprocessing import StandardScaler
             from sklearn.svm import SVC
