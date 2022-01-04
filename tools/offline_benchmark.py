@@ -201,6 +201,8 @@ if __name__ == "__main__":
                 surrogate_class = OBTLV
             elif mth == 'topo_v3':
                 surrogate_class = TOPO_V3
+            elif mth == 'ultra':
+                surrogate_class = RGPE
             else:
                 raise ValueError('Invalid baseline name - %s.' % mth)
             if mth not in ['mklgp', 'scot', 'tstm']:
@@ -211,24 +213,24 @@ if __name__ == "__main__":
                 surrogate = surrogate_class(config_space, source_hpo_data, target_hpo_data, seed,
                                             surrogate_type=surrogate_type,
                                             num_src_hpo_trial=n_src_data, metafeatures=dataset_meta_features)
-
-            # smbo = SMBO_OFFLINE(target_hpo_data, config_space, surrogate,
-            #                     random_seed=seed, max_runs=trial_num,
-            #                     source_hpo_data=source_hpo_data,
-            #                     num_src_hpo_trial=n_src_data,
-            #                     surrogate_type=surrogate_type,
-            #                     enable_init_design=enable_init_design,
-            #                     initial_runs=init_num,
-            #                     acq_func='ei')
-
-            smbo = SMBO_SEARCH_SPACE_TRANSFER(target_hpo_data, config_space, surrogate,
-                                random_seed=seed, max_runs=trial_num,
-                                source_hpo_data=source_hpo_data,
-                                num_src_hpo_trial=n_src_data,
-                                surrogate_type=surrogate_type,
-                                enable_init_design=enable_init_design,
-                                initial_runs=init_num,
-                                acq_func='ei')
+            if mth != 'ultra':
+                smbo = SMBO_OFFLINE(target_hpo_data, config_space, surrogate,
+                                    random_seed=seed, max_runs=trial_num,
+                                    source_hpo_data=source_hpo_data,
+                                    num_src_hpo_trial=n_src_data,
+                                    surrogate_type=surrogate_type,
+                                    enable_init_design=enable_init_design,
+                                    initial_runs=init_num,
+                                    acq_func='ei')
+            else:
+                smbo = SMBO_SEARCH_SPACE_TRANSFER(target_hpo_data, config_space, surrogate,
+                                                  random_seed=seed, max_runs=trial_num,
+                                                  source_hpo_data=source_hpo_data,
+                                                  num_src_hpo_trial=n_src_data,
+                                                  surrogate_type=surrogate_type,
+                                                  enable_init_design=enable_init_design,
+                                                  initial_runs=init_num,
+                                                  acq_func='ei')
 
             result = list()
             rnd_target_perfs = [_perf for (_, _perf) in list(random_test_data[id].items())]

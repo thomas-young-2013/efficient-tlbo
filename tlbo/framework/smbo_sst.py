@@ -71,6 +71,10 @@ class SMBO_SEARCH_SPACE_TRANSFER(BasePipeline):
         self.acquisition_function = EI(self.model)
         self.space_classifier = None
         self.build_classifier()
+        self.random_configuration_chooser = ChooserProb(
+            prob=0.1,
+            rng=np.random.RandomState(self.random_seed)
+        )
 
         # Set the parameter in metric.
         self.ys = list(self.target_hpo_measurements.values())
@@ -161,13 +165,14 @@ class SMBO_SEARCH_SPACE_TRANSFER(BasePipeline):
             'Iteration-%d, objective improvement: %.4f' % (self.iteration_id, max(0, self.default_obj_value - perf)))
         return config, trial_state, perf, trial_info
 
-    def sample_random_config(self, config_num=1):
+    def sample_random_config(self, config_set=None, config_num=1):
         configs = list()
         sample_cnt = 0
+        configurations = self.configuration_list if config_set is None else config_set
         while len(configs) < config_num:
             sample_cnt += 1
-            _idx = self.rng.randint(len(self.configuration_list))
-            config = self.configuration_list[_idx]
+            _idx = self.rng.randint(len(configurations))
+            config = configurations[_idx]
             if config not in (self.configurations + self.failed_configurations + configs):
                 configs.append(config)
                 sample_cnt = 0
@@ -230,14 +235,24 @@ class SMBO_SEARCH_SPACE_TRANSFER(BasePipeline):
         for _idx, _clf in enumerate(self.space_classifier):
             if _idx in task_indexes:
                 y_pred.append(_clf.predict(X_ALL))
-        y_pred = np.max(y_pred, axis=0)
-
         X_candidate = list()
-        for _idx, _flag in enumerate(y_pred):
-            if _flag == 1:
-                X_candidate.append(self.configuration_list[_idx])
-        print('After space transfer, the candidate space size is %d.' % len(X_candidate))
+        if len(y_pred) > 0:
+            y_pred = np.max(y_pred, axis=0)
+            for _idx, _flag in enumerate(y_pred):
+                if _flag == 1:
+                    X_candidate.append(self.configuration_list[_idx])
+            print('After space transfer, the candidate space size is %d.' % len(X_candidate))
+        else:
+            X_candidate = self.configuration_list
         assert len(X_candidate) > 0
+
+        if self.random_configuration_chooser.check(self.iteration_id):
+            config = self.sample_random_config(config_set=X_candidate)[0]
+            if len(self.model.target_weight) == 0:
+                self.model.target_weight.append(0.)
+            else:
+                self.model.target_weight.append(self.model.target_weight[-1])
+            return config
 
         acq_optimizer = OfflineSearch(X_candidate,
                                       self.acquisition_function,

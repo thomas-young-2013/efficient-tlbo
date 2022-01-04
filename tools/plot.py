@@ -50,7 +50,7 @@ if exp_id == 'exp1':
         data_dir = 'data/exp_results/main_random_27_20000/'
     else:
         data_dir = 'data/exp_results/main_random_29_20000/'
-    run_trials = 75
+    run_trials = 50
 elif exp_id == 'exp2':
     data_dir = 'data/exp_results/main_random_5_20000/'
     run_trials = 75
@@ -70,8 +70,8 @@ def fetch_color_marker(m_list):
     color_dict = dict()
     marker_dict = dict()
     names_dict = dict()
-    method_ids = ['obtl', 'rs', 'notl', 'scot', 'sgpr', 'tst', 'tstm', 'pogpe', 'rgpe']
-    method_names = ['TOPO', 'RS', 'I-GP', 'SCoT', 'SGPR', 'TST', 'TST-M', 'POGPE', 'RGPE']
+    method_ids = ['obtl', 'ultra', 'notl', 'scot', 'sgpr', 'tst', 'tstm', 'pogpe', 'rgpe']
+    method_names = ['TOPO', 'ULTRA', 'I-GP', 'SCoT', 'SGPR', 'TST', 'TST-M', 'POGPE', 'RGPE']
     color_list = ['red', 'orchid', 'royalblue', 'brown', 'purple', 'orange', 'yellowgreen', 'navy', 'green', 'black']
     markers = ['s', '^', '*', 'v', 'o', 'p', '2', 'x', '+', 'H']
 
@@ -91,7 +91,7 @@ def fetch_color_marker(m_list):
             else:
                 raise ValueError('Unexpected method - %s.' % name)
         elif exp_id in ['exp1', 'exp2', 'exp5', 'exp3']:
-            if name == 'rs':
+            if name == 'ultra':
                 fill_values(name, 1)
             elif name == 'notl':
                 fill_values(name, 2)

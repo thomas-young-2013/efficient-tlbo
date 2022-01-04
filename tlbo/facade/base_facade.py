@@ -191,9 +191,10 @@ class BaseFacade(object):
             raise ValueError('Invalid combination method %s.' % combination_method)
 
     def scale_fit_meta_features(self, meta_features):
-        from sklearn.preprocessing import MinMaxScaler, Imputer
+        from sklearn.preprocessing import MinMaxScaler
+        from sklearn.impute import SimpleImputer
         meta_features = np.array(meta_features)
-        self.meta_feature_imputer = Imputer(missing_values='NaN', strategy='mean', axis=0)
+        self.meta_feature_imputer = SimpleImputer(missing_values=np.nan, strategy='mean')
         self.meta_feature_imputer.fit(meta_features)
         meta_features = self.meta_feature_imputer.transform(meta_features)
         self.meta_feature_scaler = MinMaxScaler()
