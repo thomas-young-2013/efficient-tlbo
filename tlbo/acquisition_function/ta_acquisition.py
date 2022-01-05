@@ -1,7 +1,7 @@
 # encoding=utf8
 import numpy as np
 
-from tlbo.model.base_epm import AbstractEPM as AbstractModel
+from tlbo.model.base_model import AbstractModel
 from tlbo.acquisition_function.acquisition import AbstractAcquisitionFunction, EI, PI
 
 

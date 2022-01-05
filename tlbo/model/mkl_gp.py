@@ -4,11 +4,11 @@ import logging
 import numpy as np
 
 from tlbo.model.basics.se_nn_kernel import SENNKernel
-from tlbo.model.base_model import BaseModel
+from tlbo.model.base_model import AbstractModel
 logger = logging.getLogger(__name__)
 
 
-class MKLGaussianProcess(BaseModel):
+class MKLGaussianProcess(AbstractModel):
     def __init__(self, metafeatures):
         self.kernel = SENNKernel(metafeatures, 0.7, 6, 20)
         self.L, self.alpha = None, None

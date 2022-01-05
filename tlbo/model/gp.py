@@ -1,3 +1,6 @@
+# License: 3-clause BSD
+# Copyright (c) 2016-2018, Ml4AAD Group (http://www.ml4aad.org/)
+
 import logging
 import typing
 
@@ -5,7 +8,7 @@ import numpy as np
 from scipy import optimize
 
 from ConfigSpace import ConfigurationSpace
-from tlbo.model.base_gp import BaseModel
+from tlbo.model.base_gp import BaseGP
 from tlbo.model.gp_base_prior import Prior
 from tlbo.utils.constants import VERY_SMALL_NUMBER
 
@@ -15,9 +18,9 @@ from skopt.learning.gaussian_process import GaussianProcessRegressor
 logger = logging.getLogger(__name__)
 
 
-class GaussianProcess(BaseModel):
+class GaussianProcess(BaseGP):
     """
-    Gaussian process model.
+    Gaussian process surrogate.
 
     The GP hyperparameterŝ are obtained by optimizing the marginal log likelihood.
 
@@ -41,6 +44,10 @@ class GaussianProcess(BaseModel):
         Model seed.
     kernel : george kernel object
         Specifies the kernel that is used for all Gaussian Process
+    alpha : float or array-like, optional
+        Governed by the kernel in this implementation, so should be set to 0
+        Fix error when using RBF kernel (Set alpha=1e-10)
+        See skopt.learning.gaussian_process.GaussianProcessRegressor for details
     prior : prior object
         Defines a prior for the hyperparameters of the GP. Make sure that
         it implements the Prior interface.
@@ -56,16 +63,17 @@ class GaussianProcess(BaseModel):
     """
 
     def __init__(
-        self,
-        configspace: ConfigurationSpace,
-        types: typing.List[int],
-        bounds: typing.List[typing.Tuple[float, float]],
-        seed: int,
-        kernel: Kernel,
-        normalize_y: bool = True,
-        n_opt_restarts: int = 10,
-        instance_features: typing.Optional[np.ndarray] = None,
-        pca_components: typing.Optional[int] = None,
+            self,
+            configspace: ConfigurationSpace,
+            types: typing.List[int],
+            bounds: typing.List[typing.Tuple[float, float]],
+            kernel: Kernel,
+            alpha=0,
+            normalize_y: bool = True,
+            n_opt_restarts: int = 10,
+            instance_features: typing.Optional[np.ndarray] = None,
+            pca_components: typing.Optional[int] = None,
+            seed: int = 42
     ):
         super().__init__(
             configspace=configspace,
@@ -77,10 +85,11 @@ class GaussianProcess(BaseModel):
             pca_components=pca_components,
         )
 
+        self.alpha = alpha  # Fix RBF kernel error
         self.normalize_y = normalize_y
         self.n_opt_restarts = n_opt_restarts
 
-        self.hypers = np.empty((0, ))
+        self.hypers = np.empty((0,))
         self.is_trained = False
         self._n_ll_evals = 0
 
@@ -118,12 +127,13 @@ class GaussianProcess(BaseModel):
         n_tries = 10
         for i in range(n_tries):
             try:
-                self.gp = self._get_gp()
+                self.gp = self._get_gp(alpha=self.alpha)
                 self.gp.fit(X, y)
                 break
             except np.linalg.LinAlgError as e:
-                if i == n_tries:
-                    raise e
+                if i == n_tries - 1:
+                    print('Fail to fit GP after 10 tries!')  # todo: check raise
+                    # raise e
                 # Assume that the last entry of theta is the noise
                 theta = np.exp(self.kernel.theta)
                 theta[-1] += 1
@@ -140,13 +150,13 @@ class GaussianProcess(BaseModel):
         self.is_trained = True
         return self
 
-    def _get_gp(self) -> GaussianProcessRegressor:
+    def _get_gp(self, alpha=0) -> GaussianProcessRegressor:
         return GaussianProcessRegressor(
             kernel=self.kernel,
             normalize_y=False,
             optimizer=None,
             n_restarts_optimizer=-1,  # Do not use scikit-learn's optimization routine
-            alpha=0,  # Governed by the kernel
+            alpha=alpha,    # The original is 0 (Governed by the kernel). Fix RBF kernel error.
             noise=None,
             random_state=self.rng,
         )

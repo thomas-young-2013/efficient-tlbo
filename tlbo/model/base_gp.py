@@ -1,49 +1,46 @@
-from typing import List, Optional, Tuple, Union, TYPE_CHECKING
+# License: 3-clause BSD
+# Copyright (c) 2016-2018, Ml4AAD Group (http://www.ml4aad.org/)
+
+from typing import List, Optional, Tuple, Union
 
 from ConfigSpace import ConfigurationSpace
 import numpy as np
 import sklearn.gaussian_process.kernels
 
-from tlbo.model.base_epm import AbstractEPM
+from tlbo.model.base_model import AbstractModel
 import tlbo.model.gp_base_prior
 
-if TYPE_CHECKING:
-    from skopt.learning.gaussian_process.kernels import Kernel
-    from skopt.learning.gaussian_process import GaussianProcessRegressor
-else:
-    from lazy_import import lazy_callable
-    Kernel = lazy_callable('skopt.learning.gaussian_process.kernels.Kernel')
-    GaussianProcessRegressor = lazy_callable(
-        'skopt.learning.gaussian_process.GaussianProcessRegressor')
+from skopt.learning.gaussian_process.kernels import Kernel
+from skopt.learning.gaussian_process import GaussianProcessRegressor
 
 
-class BaseModel(AbstractEPM):
+class BaseGP(AbstractModel):
 
     def __init__(
-        self,
-        configspace: ConfigurationSpace,
-        types: List[int],
-        bounds: List[Tuple[float, float]],
-        seed: int,
-        kernel: Kernel,
-        instance_features: Optional[np.ndarray] = None,
-        pca_components: Optional[int] = None,
+            self,
+            configspace: ConfigurationSpace,
+            types: List[int],
+            bounds: List[Tuple[float, float]],
+            seed: int,
+            kernel: Kernel,
+            instance_features: Optional[np.ndarray] = None,
+            pca_components: Optional[int] = None,
     ):
         """
         Abstract base class for all Gaussian process models.
         """
         super().__init__(
-            configspace=configspace,
             types=types,
             bounds=bounds,
-            seed=seed,
             instance_features=instance_features,
             pca_components=pca_components,
         )
 
+        self.configspace = configspace
         self.rng = np.random.RandomState(seed)
         self.kernel = kernel
         self.gp = self._get_gp()
+        self.seed = seed
 
     def _get_gp(self) -> GaussianProcessRegressor:
         raise NotImplementedError()
@@ -67,9 +64,9 @@ class BaseModel(AbstractEPM):
         return (y - self.mean_y_) / self.std_y_
 
     def _untransform_y(
-        self,
-        y: np.ndarray,
-        var: Optional[np.ndarray] = None,
+            self,
+            y: np.ndarray,
+            var: Optional[np.ndarray] = None,
     ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
         """Transform zeromean unit standard deviation data into the regular space.
 
@@ -93,15 +90,16 @@ class BaseModel(AbstractEPM):
         return y
 
     def _get_all_priors(
-        self,
-        add_bound_priors: bool = True,
-        add_soft_bounds: bool = False,
+            self,
+            add_bound_priors: bool = True,
+            add_soft_bounds: bool = False,
     ) -> List[List[tlbo.model.gp_base_prior.Prior]]:
         # Obtain a list of all priors for each tunable hyperparameter of the kernel
         all_priors = []
         to_visit = []
-        to_visit.append(self.gp.kernel.k1)
-        to_visit.append(self.gp.kernel.k2)
+        # to_visit.append(self.gp.kernel.k1)
+        # to_visit.append(self.gp.kernel.k2)
+        to_visit.append(self.gp.kernel)  # fix single kernel
         while len(to_visit) > 0:
             current_param = to_visit.pop(0)
             if isinstance(current_param, sklearn.gaussian_process.kernels.KernelOperator):

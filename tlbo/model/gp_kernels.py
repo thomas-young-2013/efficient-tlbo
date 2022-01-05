@@ -1,3 +1,6 @@
+# License: 3-clause BSD
+# Copyright (c) 2016-2018, Ml4AAD Group (http://www.ml4aad.org/)
+
 from inspect import signature, Signature
 import math
 from typing import Optional, Union, Tuple, List, Callable, Dict, Any

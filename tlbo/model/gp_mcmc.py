@@ -1,3 +1,6 @@
+# License: 3-clause BSD
+# Copyright (c) 2016-2018, Ml4AAD Group (http://www.ml4aad.org/)
+
 from copy import deepcopy
 import logging
 import typing
@@ -7,7 +10,7 @@ import emcee
 import numpy as np
 
 from ConfigSpace import ConfigurationSpace
-from tlbo.model.base_gp import BaseModel
+from tlbo.model.base_gp import BaseGP
 from tlbo.model.gp import GaussianProcess
 from tlbo.model.gp_base_prior import Prior
 
@@ -17,26 +20,26 @@ from skopt.learning.gaussian_process import GaussianProcessRegressor
 logger = logging.getLogger(__name__)
 
 
-class GaussianProcessMCMC(BaseModel):
+class GaussianProcessMCMC(BaseGP):
 
     def __init__(
-        self,
-        configspace: ConfigurationSpace,
-        types: typing.List[int],
-        bounds: typing.List[typing.Tuple[float, float]],
-        seed: int,
-        kernel: Kernel,
-        n_mcmc_walkers: int = 20,
-        chain_length: int = 50,
-        burnin_steps: int = 50,
-        normalize_y: bool = True,
-        mcmc_sampler: str = 'emcee',
-        average_samples: bool = False,
-        instance_features: typing.Optional[np.ndarray] = None,
-        pca_components: typing.Optional[int] = None,
+            self,
+            configspace: ConfigurationSpace,
+            types: typing.List[int],
+            bounds: typing.List[typing.Tuple[float, float]],
+            kernel: Kernel,
+            n_mcmc_walkers: int = 20,
+            chain_length: int = 50,
+            burnin_steps: int = 50,
+            normalize_y: bool = True,
+            mcmc_sampler: str = 'emcee',
+            average_samples: bool = False,
+            instance_features: typing.Optional[np.ndarray] = None,
+            pca_components: typing.Optional[int] = None,
+            seed: int = 42
     ):
         """
-        Gaussian process model.
+        Gaussian process surrogate.
 
         The GP hyperparameters are integrated out by MCMC. If you use this class
         make sure that you also use an integrated acquisition function to
@@ -408,7 +411,7 @@ class GaussianProcessMCMC(BaseModel):
             raise Exception('Model has to be trained first!')
 
         if cov_return_type != 'diagonal_cov':
-            raise ValueError("'cov_return_type' can only take 'diagonal_cov' for this model")
+            raise ValueError("'cov_return_type' can only take 'diagonal_cov' for this surrogate")
 
         X_test = self._impute_inactive(X_test)
 

@@ -8,7 +8,7 @@ from scipy.stats import norm
 
 from tlbo.config_space import Configuration
 from tlbo.config_space.util import convert_configurations_to_array
-from tlbo.model.base_epm import AbstractEPM as AbstractModel
+from tlbo.model.base_model import AbstractModel
 
 
 class AbstractAcquisitionFunction(object, metaclass=abc.ABCMeta):

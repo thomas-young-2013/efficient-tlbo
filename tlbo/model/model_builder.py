@@ -5,14 +5,13 @@ from tlbo.model.gp import GaussianProcess
 from tlbo.model.util_funcs import get_rng, get_types
 from tlbo.model.rf_with_instances import RandomForestWithInstances
 from tlbo.model.gp_base_prior import HorseshoePrior, LognormalPrior
-from tlbo.model.gp_kernels import ConstantKernel, Matern, HammingKernel, WhiteKernel
+from tlbo.model.gp_kernels import ConstantKernel, Matern, HammingKernel, WhiteKernel, RBF
 
 
 def build_model(model_type, config_space, rng):
     types, bounds = get_types(config_space)
     if model_type == 'rf':
-        model = RandomForestWithInstances(configspace=config_space,
-                                          types=types, bounds=bounds,
+        model = RandomForestWithInstances(types=types, bounds=bounds,
                                           seed=rng.randint(MAXINT))
     elif 'gp' in model_type:
         model = create_gp_model(model_type=model_type,
@@ -28,19 +27,16 @@ def build_model(model_type, config_space, rng):
 
 def create_gp_model(model_type, config_space, types, bounds, rng):
     """
-        Construct the Gaussian process model that is capable of dealing with categorical hyperparameters.
+        Construct the Gaussian process surrogate that is capable of dealing with categorical hyperparameters.
     """
-    if rng is None:
-        _, rng = get_rng(rng)
-
     cov_amp = ConstantKernel(
         2.0,
         constant_value_bounds=(np.exp(-10), np.exp(2)),
         prior=LognormalPrior(mean=0.0, sigma=1.0, rng=rng),
     )
 
-    cont_dims = np.nonzero(types == 0)[0]
-    cat_dims = np.nonzero(types != 0)[0]
+    cont_dims = np.nonzero(types == 0)[0].astype(np.int)
+    cat_dims = np.nonzero(types != 0)[0].astype(np.int)
 
     if len(cont_dims) > 0:
         exp_kernel = Matern(
@@ -81,7 +77,7 @@ def create_gp_model(model_type, config_space, types, bounds, rng):
         if n_mcmc_walkers % 2 == 1:
             n_mcmc_walkers += 1
         model = GaussianProcessMCMC(
-            config_space,
+            configspace=config_space,
             types=types,
             bounds=bounds,
             kernel=kernel,
@@ -93,13 +89,27 @@ def create_gp_model(model_type, config_space, types, bounds, rng):
         )
     elif model_type == 'gp':
         model = GaussianProcess(
-            config_space,
+            configspace=config_space,
             types=types,
             bounds=bounds,
             kernel=kernel,
             normalize_y=True,
             seed=rng.randint(low=0, high=10000),
         )
+    elif model_type == 'gp_rbf':
+        rbf_kernel = RBF(
+            length_scale=1,
+            length_scale_bounds=(1e-3, 1e2),
+        )
+        model = GaussianProcess(
+            configspace=config_space,
+            types=types,
+            bounds=bounds,
+            alpha=1e-10,    # Fix RBF kernel error  # todo: might conflict with restart training
+            kernel=rbf_kernel,  # todo: add white kernel and check MESMO
+            normalize_y=False,  # todo confirm
+            seed=rng.randint(low=0, high=10000),
+        )
     else:
-        raise ValueError("Invalid model str %s!" % model_type)
+        raise ValueError("Invalid surrogate str %s!" % model_type)
     return model

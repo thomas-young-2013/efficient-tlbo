@@ -1,5 +1,8 @@
+# License: MIT
+
 import typing
 import logging
+import numbers
 import numpy as np
 
 from ConfigSpace.hyperparameters import CategoricalHyperparameter, \
@@ -16,63 +19,95 @@ def get_types(config_space, instance_features=None):
     bounds = [(np.nan, np.nan)]*types.shape[0]
 
     for i, param in enumerate(config_space.get_hyperparameters()):
-        parents = config_space.get_parents_of(param.name)
-        if len(parents) == 0:
-            can_be_inactive = False
-        else:
-            can_be_inactive = True
-
         if isinstance(param, (CategoricalHyperparameter)):
             n_cats = len(param.choices)
-            if can_be_inactive:
-                n_cats = len(param.choices) + 1
             types[i] = n_cats
             bounds[i] = (int(n_cats), np.nan)
 
         elif isinstance(param, (OrdinalHyperparameter)):
             n_cats = len(param.sequence)
             types[i] = 0
-            if can_be_inactive:
-                bounds[i] = (0, int(n_cats))
-            else:
-                bounds[i] = (0, int(n_cats) - 1)
+            bounds[i] = (0, int(n_cats) - 1)
 
         elif isinstance(param, Constant):
-            # for constants we simply set types to 0 which makes it a numerical
-            # parameter
-            if can_be_inactive:
-                bounds[i] = (2, np.nan)
-                types[i] = 2
-            else:
-                bounds[i] = (0, np.nan)
-                types[i] = 0
+            # for constants we simply set types to 0
+            # which makes it a numerical parameter
+            types[i] = 0
+            bounds[i] = (0, np.nan)
             # and we leave the bounds to be 0 for now
-        elif isinstance(param, UniformFloatHyperparameter):
-            # Are sampled on the unit hypercube thus the bounds
-            # are always 0.0, 1.0
-            if can_be_inactive:
-                bounds[i] = (-1.0, 1.0)
-            else:
-                bounds[i] = (0, 1.0)
+        elif isinstance(param, UniformFloatHyperparameter):         # Are sampled on the unit hypercube thus the bounds
+            # bounds[i] = (float(param.lower), float(param.upper))  # are always 0.0, 1.0
+            bounds[i] = (0.0, 1.0)
         elif isinstance(param, UniformIntegerHyperparameter):
-            if can_be_inactive:
-                bounds[i] = (-1.0, 1.0)
-            else:
-                bounds[i] = (0, 1.0)
+            # bounds[i] = (int(param.lower), int(param.upper))
+            bounds[i] = (0.0, 1.0)
         elif not isinstance(param, (UniformFloatHyperparameter,
                                     UniformIntegerHyperparameter,
-                                    OrdinalHyperparameter,
-                                    CategoricalHyperparameter)):
+                                    OrdinalHyperparameter)):
             raise TypeError("Unknown hyperparameter type %s" % type(param))
 
     if instance_features is not None:
         types = np.hstack(
-            (types, np.zeros((instance_features.shape[1])))
-        )
+            (types, np.zeros((instance_features.shape[1]))))
 
     types = np.array(types, dtype=np.uint)
     bounds = np.array(bounds, dtype=object)
     return types, bounds
+
+
+def get_result(result):
+    """
+    Get objs and constraints from result returned by objective function.
+    Raise ValueError if objs is None as time_limit() function doesn't raise Exception
+
+    :param result:
+        return value from objective function
+    :return:
+        objs:
+            list/tuple of objective values
+        constraints:
+            list/tuple of constraint values or None
+    """
+    number_typing_list = (int, float, np.int32, np.int64, np.float32, np.float64)
+    if result is None:
+        raise ValueError('result is None!')
+    elif isinstance(result, dict):  # recommended usage
+        objs = result['objs']
+        if isinstance(objs, number_typing_list):
+            objs = [objs, ]
+        constraints = result.get('constraints', None)
+    elif isinstance(result, number_typing_list):
+        objs = [result, ]
+        constraints = None
+    else:
+        objs = result
+        constraints = None
+
+    if objs is None:
+        raise ValueError('objs is None!')
+    return objs, constraints
+
+
+def check_random_state(seed):
+    """ from [sklearn.utils.check_random_state]
+    Turn seed into a np.random.RandomState instance
+
+    Parameters
+    ----------
+    seed : None | int | instance of RandomState
+        If seed is None, return the RandomState singleton used by np.random.
+        If seed is an int, return a new RandomState instance seeded with seed.
+        If seed is already a RandomState instance, return it.
+        Otherwise raise ValueError.
+    """
+    if seed is None or seed is np.random:
+        return np.random.mtrand._rand
+    if isinstance(seed, (numbers.Integral, np.integer)):
+        return np.random.RandomState(seed)
+    if isinstance(seed, np.random.RandomState):
+        return seed
+    raise ValueError('%r cannot be used to seed a numpy.random.RandomState'
+                     ' instance' % seed)
 
 
 def get_rng(
