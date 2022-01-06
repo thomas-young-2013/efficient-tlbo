@@ -23,6 +23,7 @@ from tlbo.facade.topo_variant3 import TOPO_V3
 from tlbo.facade.random_surrogate import RandomSearch
 from tlbo.framework.smbo_offline import SMBO_OFFLINE
 from tlbo.framework.smbo_sst import SMBO_SEARCH_SPACE_TRANSFER
+from tlbo.framework.smbo_baseline import SMBO_SEARCH_SPACE_Enlarge
 from tlbo.config_space.space_instance import get_configspace_instance
 
 parser = argparse.ArgumentParser()
@@ -38,6 +39,7 @@ parser.add_argument('--run_num', type=int, default=-1)
 parser.add_argument('--seed', type=int, default=42)
 parser.add_argument('--num_source_data', type=int, default=50)
 parser.add_argument('--num_source_problem', type=int, default=-1)
+parser.add_argument('--task_set', type=str, default='full')
 parser.add_argument('--num_target_data', type=int, default=10000)
 parser.add_argument('--num_random_data', type=int, default=20000)
 parser.add_argument('--save_weight', type=str, default='false')
@@ -45,6 +47,7 @@ args = parser.parse_args()
 algo_id = args.algo_id
 exp_id = args.exp_id
 task_id = args.task_id
+task_set = args.task_set
 surrogate_type = args.surrogate_type
 n_src_data = args.num_source_data
 num_source_problem = args.num_source_problem
@@ -126,8 +129,32 @@ def load_hpo_history():
     return source_hpo_ids, source_hpo_data, random_hpo_data, meta_features
 
 
+def extract_data(task_set):
+    if task_set == 'full':
+        hpo_ids, hpo_data, random_test_data, meta_features = load_hpo_history()
+    elif task_set in ['class1', 'class2']:
+        if task_set == 'class1':
+            dataset_ids = ['kc1', 'pollen', 'madelon', 'winequality_white', 'sick']
+        else:
+            dataset_ids = ['kc1', 'pollen', 'madelon', 'winequality_white', 'sick', 'quake',
+                           'hypothyroid(1)', 'musk', 'page-blocks(1)', 'page-blocks(2)',
+                           'satimage', 'segment', 'waveform-5000(2)']
+
+        hpo_ids, hpo_data, random_test_data, meta_features = list(), list(), list(), list()
+        hpo_ids_, hpo_data_, random_test_data_, meta_features_ = load_hpo_history()
+        for _idx, _id in enumerate(hpo_ids_):
+            if _id in dataset_ids:
+                hpo_ids.append(hpo_ids_[_idx])
+                hpo_data.append(hpo_data_[_idx])
+                random_test_data.append(random_test_data_[_idx])
+                meta_features.append(meta_features_[_idx])
+    else:
+        raise ValueError('Invalid Task Set.')
+    return hpo_ids, hpo_data, random_test_data, meta_features
+
+
 if __name__ == "__main__":
-    hpo_ids, hpo_data, random_test_data, meta_features = load_hpo_history()
+    hpo_ids, hpo_data, random_test_data, meta_features = extract_data(task_set)
     algo_name = 'liblinear_svc' if algo_id == 'linear' else algo_id
     config_space = get_configspace_instance(algo_id=algo_name)
     np.random.seed(seed)
@@ -203,6 +230,8 @@ if __name__ == "__main__":
                 surrogate_class = TOPO_V3
             elif mth == 'ultra':
                 surrogate_class = RGPE
+            elif mth == 'space':
+                surrogate_class = RGPE
             else:
                 raise ValueError('Invalid baseline name - %s.' % mth)
             if mth not in ['mklgp', 'scot', 'tstm']:
@@ -213,24 +242,20 @@ if __name__ == "__main__":
                 surrogate = surrogate_class(config_space, source_hpo_data, target_hpo_data, seed,
                                             surrogate_type=surrogate_type,
                                             num_src_hpo_trial=n_src_data, metafeatures=dataset_meta_features)
-            if mth != 'ultra':
-                smbo = SMBO_OFFLINE(target_hpo_data, config_space, surrogate,
-                                    random_seed=seed, max_runs=trial_num,
-                                    source_hpo_data=source_hpo_data,
-                                    num_src_hpo_trial=n_src_data,
-                                    surrogate_type=surrogate_type,
-                                    enable_init_design=enable_init_design,
-                                    initial_runs=init_num,
-                                    acq_func='ei')
-            else:
-                smbo = SMBO_SEARCH_SPACE_TRANSFER(target_hpo_data, config_space, surrogate,
-                                                  random_seed=seed, max_runs=trial_num,
-                                                  source_hpo_data=source_hpo_data,
-                                                  num_src_hpo_trial=n_src_data,
-                                                  surrogate_type=surrogate_type,
-                                                  enable_init_design=enable_init_design,
-                                                  initial_runs=init_num,
-                                                  acq_func='ei')
+            smbo_framework = SMBO_OFFLINE
+            if mth == "ultra":
+                smbo_framework = SMBO_SEARCH_SPACE_TRANSFER
+            if mth == "space":
+                smbo_framework = SMBO_SEARCH_SPACE_Enlarge
+
+            smbo = smbo_framework(target_hpo_data, config_space, surrogate,
+                                  random_seed=seed, max_runs=trial_num,
+                                  source_hpo_data=source_hpo_data,
+                                  num_src_hpo_trial=n_src_data,
+                                  surrogate_type=surrogate_type,
+                                  enable_init_design=enable_init_design,
+                                  initial_runs=init_num,
+                                  acq_func='ei')
 
             result = list()
             rnd_target_perfs = [_perf for (_, _perf) in list(random_test_data[id].items())]

@@ -14,7 +14,7 @@ class RGPE(BaseFacade):
         self.w = [1. / self.K] * self.K + [0.]
         self.scale = True
         # self.num_sample = 100
-        self.num_sample = 50
+        self.num_sample = 30
 
         # Preventing weight dilution.
         self.ignored_flag = [False] * self.K

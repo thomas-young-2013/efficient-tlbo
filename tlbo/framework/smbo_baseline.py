@@ -19,7 +19,7 @@ from tlbo.framework.smbo import BasePipeline
 from tlbo.facade.base_facade import BaseFacade
 
 
-class SMBO_SEARCH_SPACE_TRANSFER(BasePipeline):
+class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
     def __init__(self,
                  target_hpo_data: Dict,
                  config_space: ConfigurationSpace,
@@ -74,12 +74,12 @@ class SMBO_SEARCH_SPACE_TRANSFER(BasePipeline):
         assert self.model.method_id == 'rgpe'
         self.acquisition_function = EI(self.model)
         self.space_classifier = None
-        self.build_classifier()
         self.random_configuration_chooser = ChooserProb(
             prob=0.1,
             rng=np.random.RandomState(self.random_seed)
         )
-
+        self.X_candidate = self.configuration_list
+        self.perf_priors = self.build_priors()
         # Set the parameter in metric.
         self.ys = list(self.target_hpo_measurements.values())
         self.y_max, self.y_min = np.max(self.ys), np.min(self.ys)
@@ -228,53 +228,21 @@ class SMBO_SEARCH_SPACE_TRANSFER(BasePipeline):
         else:
             raise ValueError('invalid acquisition function ~ %s.' % self.acq_func)
 
-        # Do task selection.
-        weights = self.model.w[:-1]
-        assert len(weights) == len(self.space_classifier)
-        task_indexes = np.argsort(weights)[-5:]
-        task_indexes = [idx_ for idx_ in task_indexes if weights[idx_] > 0.]
-
-        X_ALL = convert_configurations_to_array(self.configuration_list)
-        y_pred = list()
-        for _idx, _clf in enumerate(self.space_classifier):
-            if _idx in task_indexes:
-                y_pred.append(_clf.predict(X_ALL))
-
-        X_candidate = list()
-        if len(y_pred) > 0:
-            # Count the #intersection.
-            pred_mat = np.array(y_pred)
-            _cnt = 0
-            for _col in range(pred_mat.shape[1]):
-                if (pred_mat[:, _col] == 1).all():
-                    _cnt += 1
-            print('The intersection of candidate space is %d.' % _cnt)
-
-            y_pred = np.max(y_pred, axis=0)
-            for _idx, _flag in enumerate(y_pred):
-                if _flag == 1:
-                    X_candidate.append(self.configuration_list[_idx])
-            print('After space transfer, the candidate space size is %d.' % len(X_candidate))
-
-            if len(X_candidate) == 0:
-                # Deal with the space with no candidates.
-                if len(self.configurations) <= 20:
-                    X_candidate = self.configuration_list
-                else:
-                    X_candidate = self.choose_config_target_space()
-        else:
-            X_candidate = self.choose_config_target_space()
-        assert len(X_candidate) > 0
+        if self.iteration_id == 1 or self.iteration_id % 5 == 0:
+            _percentile = min(95, 5 + self.iteration_id)
+            self.X_candidate = self.build_candidate_set(percentile=_percentile)
+        if self.X_candidate is not None:
+            print('After space selection, the candidate space size is %d.' % len(self.X_candidate))
 
         if self.random_configuration_chooser.check(self.iteration_id):
-            config = self.sample_random_config(config_set=X_candidate)[0]
+            config = self.sample_random_config(config_set=self.X_candidate)[0]
             if len(self.model.target_weight) == 0:
                 self.model.target_weight.append(0.)
             else:
                 self.model.target_weight.append(self.model.target_weight[-1])
             return config
 
-        acq_optimizer = OfflineSearch(X_candidate,
+        acq_optimizer = OfflineSearch(self.X_candidate,
                                       self.acquisition_function,
                                       self.config_space,
                                       rng=np.random.RandomState(self.random_seed)
@@ -283,77 +251,46 @@ class SMBO_SEARCH_SPACE_TRANSFER(BasePipeline):
         start_time = time.time()
         sorted_configs = acq_optimizer.maximize(
             runhistory=self.history_container,
-            num_points=1
+            num_points=5
         )
         print('Optimizing Acq. func took %.3f' % (time.time() - start_time))
         for _config in sorted_configs:
             if _config not in (self.configurations + self.failed_configurations):
                 return _config
-            else:
-                print('The same config is recommended.')
-                return _config
+        print('The same config is recommended.')
+        return list(sorted_configs)[0]
 
-    def build_classifier(self):
+    def build_priors(self):
+        perf_result = list()
+        X_ = convert_configurations_to_array(self.configuration_list)
+        for _model in self.model.source_surrogates:
+            _m, _ = _model.predict(X_)
+            perf_result.append(_m)
+        return np.mean(perf_result, axis=0)
+
+    def build_candidate_set(self, percentile=10):
+        print('Current percentile is %d.' % percentile)
+        X_ = convert_configurations_to_array(self.configuration_list)
+
+        start_time = time.time()
         # Train the binary classifier.
         print('start to train binary classifier.')
-        start_time = time.time()
-        self.space_classifier = list()
-        normalize = 'standardize'
-        for hpo_evaluation_data in self.source_hpo_data:
-            print('.', end='')
-            _X, _y = list(), list()
-            for _config, _config_perf in hpo_evaluation_data.items():
-                _X.append(_config)
-                _y.append(_config_perf)
-            X = convert_configurations_to_array(_X)
-            y = np.array(_y, dtype=np.float64)
-            X = X[:self.num_src_hpo_trial]
-            y = y[:self.num_src_hpo_trial]
-
-            if normalize == 'standardize':
-                if (y == y[0]).all():
-                    y[0] += 1e-4
-                y, _, _ = zero_mean_unit_var_normalization(y)
-            elif normalize == 'scale':
-                if (y == y[0]).all():
-                    y[0] += 1e-4
-                y, _, _ = zero_one_normalization(y)
-                y = 2 * y - 1.
-            else:
-                raise ValueError('Invalid parameter in norm.')
-
-            percentile = np.percentile(y, 30)
-            space_label = np.array(np.array(y) < percentile)
-            if (np.array(y) == percentile).all():
-                raise ValueError('assertion violation: the same eval values!')
-            if (space_label[0] == space_label).all():
-                space_label = np.array(np.array(y) < np.mean(y))
-                print('Label treatment triggers!')
-
-            from sklearn.pipeline import make_pipeline
-            from sklearn.preprocessing import StandardScaler
-            from sklearn.svm import SVC
-            clf = make_pipeline(StandardScaler(), SVC(gamma='auto'))
-            clf.fit(X, space_label)
-            self.space_classifier.append(clf)
-        print('Building base classifier took %.3fs.' % (time.time() - start_time))
-
-    def choose_config_target_space(self):
-        X_ALL = convert_configurations_to_array(self.configuration_list)
-        X_ = convert_configurations_to_array(self.configurations)
-        y_ = np.array(self.perfs, dtype=np.float64)
-        percentile = np.percentile(y_, 30)
-        label_ = np.array(y_ < percentile)
-
-        if (y_ == percentile).all():
+        percentile_val = np.percentile(self.perf_priors, percentile)
+        space_label = self.perf_priors < percentile_val
+        if (self.perf_priors == percentile_val).all():
             raise ValueError('assertion violation: the same eval values!')
-        if (label_[0] == label_).all():
-            label_ = np.array(y_ < np.mean(y_))
+        if (space_label[0] == space_label).all():
+            space_label = self.perf_priors < np.mean(self.perf_priors)
             print('Label treatment triggers!')
 
+        from sklearn.pipeline import make_pipeline
+        from sklearn.preprocessing import StandardScaler
+        from sklearn.svm import SVC
         clf = make_pipeline(StandardScaler(), SVC(gamma='auto'))
-        clf.fit(X_, label_)
-        pred_ = clf.predict(X_ALL)
+        clf.fit(X_, np.array(space_label).reshape(-1))
+        print('Building base classifier took %.3fs.' % (time.time() - start_time))
+
+        pred_ = clf.predict(X_)
 
         X_candidate = list()
         for _i, _config in enumerate(self.configuration_list):
