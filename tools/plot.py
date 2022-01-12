@@ -1,4 +1,5 @@
 import os
+import sys
 import argparse
 import traceback
 import pickle as pkl
@@ -8,6 +9,9 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import matplotlib.lines as mlines
 import seaborn as sns
+
+sys.path.insert(0, '.')
+from utils import seeds
 
 # sns.set_style(style='whitegrid')
 
@@ -33,6 +37,8 @@ parser.add_argument('--methods', type=str, default='rs,notl,scot,rgpe,tst,tstm,p
 parser.add_argument('--data_dir', type=str, default='./data/exp_results/')
 parser.add_argument('--transfer_trials', type=int, default=50)
 parser.add_argument('--trial_num', type=int, default=50)
+parser.add_argument('--rep', type=int, default=1)
+parser.add_argument('--start_id', type=int, default=0)
 args = parser.parse_args()
 
 benchmark_id = args.algo_id
@@ -44,6 +50,8 @@ run_trials = args.trial_num
 methods = args.methods.split(',')
 data_dir = args.data_dir
 metric = args.metric
+rep = args.rep
+start_id = args.start_id
 
 if exp_id == 'exp1':
     if benchmark_id == 'adaboost':
@@ -173,11 +181,19 @@ if __name__ == "__main__":
     handles = list()
     try:
         for idx, method in enumerate(methods):
-            filename = '%s_%s_%d_%d_%s_%s.pkl' % (method, benchmark_id, transfer_trials,
-                                                  run_trials, surrogate_type, task_id)
-            path = os.path.join(data_dir, filename)
-            with open(path, 'rb')as f:
-                array = pkl.load(f)
+            all_array = []
+            for rep_id in range(start_id, start_id + rep):
+                seed = seeds[rep_id]
+                filename = '%s_%s_%d_%d_%s_%s_%d.pkl' % (method, benchmark_id, transfer_trials,
+                                                         run_trials, surrogate_type, task_id, seed)
+                path = os.path.join(data_dir, filename)
+                with open(path, 'rb')as f:
+                    array = pkl.load(f)
+                all_array.append(array)
+            array = []
+            for i in range(len(all_array[0])):
+                data = [arr[i] for arr in all_array]
+                array.append(np.mean(data, axis=0))  # mean over repeats
 
             label_name = r'\textbf{%s}' % names_dict[method]
             x = list(range(len(array[1])))
