@@ -47,7 +47,7 @@ metric = args.metric
 
 if exp_id == 'exp1':
     if benchmark_id == 'adaboost':
-        data_dir = 'data/exp_results/main_random_27_20000/'
+        data_dir = 'data/exp_results/main_random_3_20000/'
     else:
         data_dir = 'data/exp_results/main_random_4_20000/'
     run_trials = 50

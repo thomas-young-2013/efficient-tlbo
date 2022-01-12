@@ -7,7 +7,7 @@ from sklearn.preprocessing import StandardScaler
 
 from tlbo.model.util_funcs import get_rng, get_types
 from tlbo.acquisition_function.acquisition import EI
-from tlbo.config_space import Configuration, ConfigurationSpace
+from tlbo.config_space import ConfigurationSpace
 from tlbo.facade.notl import NoTL
 from tlbo.optimizer.ei_offline_optimizer import OfflineSearch
 from tlbo.optimizer.random_configuration_chooser import ChooserProb
@@ -78,8 +78,7 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
             prob=0.1,
             rng=np.random.RandomState(self.random_seed)
         )
-        self.X_candidate = self.configuration_list
-        self.perf_priors = self.build_priors()
+
         # Set the parameter in metric.
         self.ys = list(self.target_hpo_measurements.values())
         self.y_max, self.y_min = np.max(self.ys), np.min(self.ys)
@@ -228,21 +227,64 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         else:
             raise ValueError('invalid acquisition function ~ %s.' % self.acq_func)
 
-        if self.iteration_id == 1 or self.iteration_id % 5 == 0:
-            _percentile = min(95, 5 + self.iteration_id)
-            self.X_candidate = self.build_candidate_set(percentile=_percentile)
-        if self.X_candidate is not None:
-            print('After space selection, the candidate space size is %d.' % len(self.X_candidate))
+        # Do task selection.
+        weights = self.model.w[:-1]
+        task_indexes = np.argsort(weights)[-1:]
+        task_indexes = [idx_ for idx_ in task_indexes if weights[idx_] > 0.]
+
+        # Calculate the percentiles.
+        p_min = 10
+        p_max = 90
+        percentiles = [p_max] * len(self.source_hpo_data)
+        for _task_id in task_indexes:
+            _p = p_min + (1 - weights[_task_id]) * (p_max - p_min)
+            percentiles[_task_id] = _p
+        print('Task Indexes', task_indexes)
+        print('Percentiles', percentiles)
+        self.prepare_classifier(task_indexes, percentiles)
+
+        X_ALL = convert_configurations_to_array(self.configuration_list)
+        y_pred = list()
+        for _task_id in task_indexes:
+            y_pred.append(self.space_classifier[_task_id].predict(X_ALL))
+
+        X_candidate = list()
+        if len(y_pred) > 0:
+            # Count the #intersection.
+            pred_mat = np.array(y_pred)
+            # print(pred_mat.shape)
+            # print(np.sum(pred_mat))
+            _cnt = 0
+            config_indexes = list()
+            for _col in range(pred_mat.shape[1]):
+                if (pred_mat[:, _col] == 1).all():
+                    _cnt += 1
+                    config_indexes.append(_col)
+            print('The intersection of candidate space is %d.' % _cnt)
+
+            for _idx in config_indexes:
+                X_candidate.append(self.configuration_list[_idx])
+            print('The candidate space size is %d.' % len(X_candidate))
+
+            if len(X_candidate) == 0:
+                # Deal with the space with no candidates.
+                if len(self.configurations) <= 20:
+                    X_candidate = self.configuration_list
+                else:
+                    X_candidate = self.choose_config_target_space()
+        else:
+            X_candidate = self.choose_config_target_space()
+        assert len(X_candidate) > 0
 
         if self.random_configuration_chooser.check(self.iteration_id):
-            config = self.sample_random_config(config_set=self.X_candidate)[0]
+            config = self.sample_random_config(config_set=X_candidate)[0]
             if len(self.model.target_weight) == 0:
                 self.model.target_weight.append(0.)
             else:
                 self.model.target_weight.append(self.model.target_weight[-1])
             return config
 
-        acq_optimizer = OfflineSearch(self.X_candidate,
+        acq_optimizer = OfflineSearch(X_candidate,
                                       self.acquisition_function,
                                       self.config_space,
                                       rng=np.random.RandomState(self.random_seed)
@@ -251,52 +293,92 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         start_time = time.time()
         sorted_configs = acq_optimizer.maximize(
             runhistory=self.history_container,
-            num_points=5
+            num_points=1
         )
         print('Optimizing Acq. func took %.3f' % (time.time() - start_time))
         for _config in sorted_configs:
             if _config not in (self.configurations + self.failed_configurations):
                 return _config
-        print('The same config is recommended.')
-        return list(sorted_configs)[0]
+        raise ValueError('The configuration in the SET (%d) is over' % len(self.configuration_list))
 
-    def build_priors(self):
-        perf_result = list()
-        X_ = convert_configurations_to_array(self.configuration_list)
-        for _model in self.model.source_surrogates:
-            _m, _ = _model.predict(X_)
-            perf_result.append(_m)
-        return np.mean(perf_result, axis=0)
-
-    def build_candidate_set(self, percentile=10):
-        print('Current percentile is %d.' % percentile)
-        X_ = convert_configurations_to_array(self.configuration_list)
-
-        start_time = time.time()
+    def prepare_classifier(self, task_ids, percentiles):
         # Train the binary classifier.
-        print('start to train binary classifier.')
-        percentile_val = np.percentile(self.perf_priors, percentile)
-        space_label = self.perf_priors < percentile_val
-        if (self.perf_priors == percentile_val).all():
-            raise ValueError('assertion violation: the same eval values!')
-        if (space_label[0] == space_label).all():
-            space_label = self.perf_priors < np.mean(self.perf_priors)
-            print('Label treatment triggers!')
+        print('Train binary classifiers.')
+        start_time = time.time()
+        self.space_classifier = [None] * len(self.source_hpo_data)
+        normalize = 'standardize'
 
-        from sklearn.pipeline import make_pipeline
-        from sklearn.preprocessing import StandardScaler
-        from sklearn.svm import SVC
-        clf = make_pipeline(StandardScaler(), SVC(gamma='auto'))
-        clf.fit(X_, np.array(space_label).reshape(-1))
+        for _task_id in task_ids:
+            hpo_evaluation_data = self.source_hpo_data[_task_id]
+            percentile_v = percentiles[_task_id]
+
+            print('.', end='')
+            _X, _y = list(), list()
+            for _config, _config_perf in hpo_evaluation_data.items():
+                _X.append(_config)
+                _y.append(_config_perf)
+            X = convert_configurations_to_array(_X)
+            y = np.array(_y, dtype=np.float64)
+            X = X[:self.num_src_hpo_trial]
+            y = y[:self.num_src_hpo_trial]
+
+            if normalize == 'standardize':
+                if (y == y[0]).all():
+                    y[0] += 1e-4
+                y, _, _ = zero_mean_unit_var_normalization(y)
+            elif normalize == 'scale':
+                if (y == y[0]).all():
+                    y[0] += 1e-4
+                y, _, _ = zero_one_normalization(y)
+                y = 2 * y - 1.
+            else:
+                raise ValueError('Invalid parameter in norm.')
+
+            percentile = np.percentile(y, percentile_v)
+            unique_ys = sorted(list(set(y)))
+            if len(unique_ys) >= 2 and percentile <= unique_ys[0]:
+                percentile = unique_ys[1]
+
+            space_label = np.array(np.array(y) < percentile)
+            if (np.array(y) == percentile).all():
+                raise ValueError('Assertion violation: The same eval values!')
+            if (space_label[0] == space_label).all():
+                space_label = np.array(np.array(y) < np.mean(y))
+                if (space_label[0] == space_label).all():
+                    raise ValueError('Warning: Label treatment triggers!')
+                else:
+                    print('Warning: Label treatment triggers!')
+
+            clf = make_pipeline(StandardScaler(), SVC(gamma='auto'))
+            print('Labels', space_label)
+            print('sum', np.sum(space_label))
+            clf.fit(X, space_label)
+            self.space_classifier[_task_id] = clf
         print('Building base classifier took %.3fs.' % (time.time() - start_time))
 
-        pred_ = clf.predict(X_)
-
-        X_candidate = list()
-        for _i, _config in enumerate(self.configuration_list):
-            if pred_[_i] == 1:
-                X_candidate.append(_config)
-        if len(X_candidate) == 0:
-            print('Warning: feasible set is empty!')
-            X_candidate = self.configuration_list
-        return X_candidate
+    def choose_config_target_space(self):
+        return self.configuration_list
+        # X_ALL = convert_configurations_to_array(self.configuration_list)
+        # X_ = convert_configurations_to_array(self.configurations)
+        # y_ = np.array(self.perfs, dtype=np.float64)
+        # percentile = np.percentile(y_, 30)
+        # label_ = np.array(y_ < percentile)
+        #
+        # if (y_ == percentile).all():
+        #     raise ValueError('assertion violation: the same eval values!')
+        # if (label_[0] == label_).all():
+        #     label_ = np.array(y_ < np.mean(y_))
+        #     print('Label treatment triggers!')
+        #
+        # clf = make_pipeline(StandardScaler(), SVC(gamma='auto'))
+        # clf.fit(X_, label_)
+        # pred_ = clf.predict(X_ALL)
+        #
+        # X_candidate = list()
+        # for _i, _config in enumerate(self.configuration_list):
+        #     if pred_[_i] == 1:
+        #         X_candidate.append(_config)
+        # if len(X_candidate) == 0:
+        #     print('Warning: feasible set is empty!')
+        #     X_candidate = self.configuration_list
+        # return X_candidate
