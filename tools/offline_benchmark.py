@@ -182,7 +182,7 @@ if __name__ == "__main__":
             target_weights = list()
             for id in trange(run_num):
                 print('=' * 20)
-                print('[%s-%s] Evaluate %d-th problem - %s.' % (algo_id, mth, id + 1, hpo_ids[id]))
+                print('[%s-%s] Evaluate %d-th problem - %s[%d].' % (algo_id, mth, id + 1, hpo_ids[id], rep_id))
                 start_time = time.time()
 
                 # Generate the source and target hpo data.
