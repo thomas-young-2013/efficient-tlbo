@@ -277,7 +277,13 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         assert len(X_candidate) > 0
 
         if self.random_configuration_chooser.check(self.iteration_id):
-            config = self.sample_random_config(config_set=X_candidate)[0]
+            excluded_set = list()
+            candidate_set = set(X_candidate)
+            for _config in self.configuration_list:
+                if _config not in candidate_set:
+                    excluded_set.append(_config)
+
+            config = self.sample_random_config(config_set=excluded_set)[0]
             if len(self.model.target_weight) == 0:
                 self.model.target_weight.append(0.)
             else:
@@ -350,8 +356,8 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
                     print('Warning: Label treatment triggers!')
 
             clf = make_pipeline(StandardScaler(), SVC(gamma='auto'))
-            print('Labels', space_label)
-            print('sum', np.sum(space_label))
+            # print('Labels', space_label)
+            # print('sum', np.sum(space_label))
             clf.fit(X, space_label)
             self.space_classifier[_task_id] = clf
         print('Building base classifier took %.3fs.' % (time.time() - start_time))
