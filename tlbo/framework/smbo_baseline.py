@@ -307,7 +307,15 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         for _config in sorted_configs:
             if _config not in (self.configurations + self.failed_configurations):
                 return _config
-        raise ValueError('The configuration in the SET (%d) is over' % len(self.configuration_list))
+
+        excluded_set = list()
+        candidate_set = set(X_candidate)
+        for _config in self.configuration_list:
+            if _config not in candidate_set and _config not in (self.configurations + self.failed_configurations):
+                excluded_set.append(_config)
+        if len(excluded_set) == 0:
+            excluded_set = self.configuration_list
+        return self.sample_random_config(config_set=excluded_set)[0]
 
     def prepare_classifier(self, task_ids, percentiles):
         # Train the binary classifier.
