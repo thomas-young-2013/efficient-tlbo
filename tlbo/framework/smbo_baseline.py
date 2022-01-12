@@ -282,6 +282,8 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
             for _config in self.configuration_list:
                 if _config not in candidate_set:
                     excluded_set.append(_config)
+            if len(excluded_set) == 0:
+                excluded_set = self.configuration_list
 
             config = self.sample_random_config(config_set=excluded_set)[0]
             if len(self.model.target_weight) == 0:
