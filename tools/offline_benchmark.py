@@ -20,6 +20,7 @@ from tlbo.facade.mklgp import MKLGP
 from tlbo.facade.topo_variant1 import OBTLV
 from tlbo.facade.topo_variant2 import TOPO
 from tlbo.facade.topo_variant3 import TOPO_V3
+from tlbo.facade.topo import TransBO_RGPE
 from tlbo.facade.random_surrogate import RandomSearch
 from tlbo.framework.smbo_offline import SMBO_OFFLINE
 from tlbo.framework.smbo_sst import SMBO_SEARCH_SPACE_TRANSFER
@@ -231,7 +232,7 @@ if __name__ == "__main__":
             elif mth == 'ultra':
                 surrogate_class = RGPE
             elif mth == 'space':
-                surrogate_class = RGPE
+                surrogate_class = TransBO_RGPE
             else:
                 raise ValueError('Invalid baseline name - %s.' % mth)
             if mth not in ['mklgp', 'scot', 'tstm']:

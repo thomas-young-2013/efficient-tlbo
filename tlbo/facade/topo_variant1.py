@@ -11,7 +11,7 @@ class OBTLV(BaseFacade):
                  surrogate_type='rf', num_src_hpo_trial=50, fusion_method='idp_lc', only_source=False):
         super().__init__(config_space, source_hpo_data, seed, target_hp_configs,
                          surrogate_type=surrogate_type, num_src_hpo_trial=num_src_hpo_trial)
-        self.method_id = 'obtl_v'
+        self.method_id = 'topo_v1'
         self.fusion_method = fusion_method
         self.build_source_surrogates(normalize=_scale_method)
         self.only_source = only_source
