@@ -46,7 +46,7 @@ parser.add_argument('--task_set', type=str, default='full')
 parser.add_argument('--num_target_data', type=int, default=10000)
 parser.add_argument('--num_random_data', type=int, default=20000)
 parser.add_argument('--save_weight', type=str, default='false')
-parser.add_argument('--rep', type=int, default=5)
+parser.add_argument('--rep', type=int, default=1)
 parser.add_argument('--start_id', type=int, default=0)
 args = parser.parse_args()
 
@@ -236,7 +236,7 @@ if __name__ == "__main__":
                 elif mth == 'ultra':
                     surrogate_class = RGPE
                 elif mth == 'space':
-                    surrogate_class = TransBO_RGPE
+                    surrogate_class = RGPE
                 else:
                     raise ValueError('Invalid baseline name - %s.' % mth)
                 if mth not in ['mklgp', 'scot', 'tstm']:

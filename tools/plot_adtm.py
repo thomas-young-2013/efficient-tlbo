@@ -59,7 +59,7 @@ if exp_id == 'exp1':
         data_dir = 'data/exp_results/main_random_3_20000/'
     else:
         data_dir = 'data/exp_results/main_random_4_20000/'
-    run_trials = 20
+    run_trials = 50
 elif exp_id == 'exp2':
     data_dir = 'data/exp_results/main_random_5_20000/'
     run_trials = 75
@@ -214,7 +214,7 @@ if __name__ == "__main__":
 
         ax.set_ylabel('\\textbf{ADTM}', fontsize=label_fontsize)
 
-        plt.title('%s' % (dataset.replace('_', '\\_'),))
+        plt.title('[%s]-%s' % (args.algo_id.replace('_', '\\_'), dataset.replace('_', '\\_'),))
         # plt.subplots_adjust(top=0.97, right=0.968, left=0.16, bottom=0.13)
 
         table.add_row(row)

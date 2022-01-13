@@ -248,11 +248,11 @@ if __name__ == "__main__":
     ax.set_xlabel('\\textbf{Number of Trials', fontsize=label_fontsize)
     if metric == 'adtm':
         ax.set_ylabel('\\textbf{ADTM}', fontsize=label_fontsize)
-        plt.subplots_adjust(top=0.97, right=0.968, left=0.16, bottom=0.13)
+        plt.subplots_adjust(top=0.93, right=0.968, left=0.16, bottom=0.13)
     elif metric == 'rank':
         ax.set_ylabel('\\textbf{Average Rank}', fontsize=label_fontsize)
         # ax.set_ylim(1, len(methods))
-        plt.subplots_adjust(top=0.97, right=0.968, left=0.11, bottom=0.13)
-
+        plt.subplots_adjust(top=0.93, right=0.968, left=0.11, bottom=0.13)
+    plt.title('[%s-%s]' % (args.algo_id.replace('_', '\\_'), surrogate_type))
     plt.savefig(data_dir + '%s_%s_%d_%s_result.pdf' % (exp_id, benchmark_id, run_trials, metric))
     plt.show()

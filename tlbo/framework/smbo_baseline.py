@@ -71,7 +71,6 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         self.config_space.seed(self.random_seed)
         np.random.seed(self.random_seed)
         self.model = surrogate_model
-        assert self.model.method_id == 'trans_rgpe'
         self.acquisition_function = EI(self.model)
         self.space_classifier = None
         self.random_configuration_chooser = ChooserProb(
