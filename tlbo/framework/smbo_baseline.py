@@ -77,6 +77,8 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
             prob=0.1,
             rng=np.random.RandomState(self.random_seed)
         )
+        # self.prop_eta = 0.9
+        # self.prop_init = 0.3
 
         # Set the parameter in metric.
         self.ys = list(self.target_hpo_measurements.values())
@@ -232,8 +234,8 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         task_indexes = [idx_ for idx_ in task_indexes if weights[idx_] > 0.]
 
         # Calculate the percentiles.
-        p_min = 10
-        p_max = 90
+        p_min = 20
+        p_max = 70
         percentiles = [p_max] * len(self.source_hpo_data)
         for _task_id in task_indexes:
             _p = p_min + (1 - weights[_task_id]) * (p_max - p_min)
@@ -275,7 +277,7 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
             X_candidate = self.choose_config_target_space()
         assert len(X_candidate) > 0
 
-        if self.random_configuration_chooser.check(self.iteration_id):
+        if self.rng.rand() < self.get_random_prob(self.iteration_id):
             excluded_set = list()
             candidate_set = set(X_candidate)
             for _config in self.configuration_list:
@@ -289,6 +291,7 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
                 self.model.target_weight.append(0.)
             else:
                 self.model.target_weight.append(self.model.target_weight[-1])
+            print('Config sampled randomly.')
             return config
 
         acq_optimizer = OfflineSearch(X_candidate,
@@ -370,6 +373,12 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
             clf.fit(X, space_label)
             self.space_classifier[_task_id] = clf
         print('Building base classifier took %.3fs.' % (time.time() - start_time))
+
+    def get_random_prob(self, iter_id):
+        if iter_id <= 25:
+            return 0.1
+        else:
+            return 0.1
 
     def choose_config_target_space(self):
         return self.configuration_list

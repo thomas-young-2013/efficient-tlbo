@@ -82,7 +82,7 @@ class SMBO_OFFLINE(BasePipeline):
                                            rng=np.random.RandomState(self.random_seed)
                                            )
         self.random_configuration_chooser = ChooserProb(
-            prob=0.1,
+            prob=0.001,
             rng=np.random.RandomState(self.random_seed)
         )
 
@@ -219,9 +219,12 @@ class SMBO_OFFLINE(BasePipeline):
             print('Training surrogate model took %.3f' % (time.time() - start_time))
 
             incumbent_value = self.history_container.get_incumbents()[0][1]
-            # if self.model.method_id == 'rgpe':
-            #     y_, _, _ = zero_mean_unit_var_normalization(Y)
-            #     incumbent_value = np.min(y_)
+            if self.model.method_id in ['tst', 'tstm']:
+                y_, _, _ = zero_one_normalization(Y)
+                incumbent_value = np.min(y_)
+            else:
+                y_, _, _ = zero_mean_unit_var_normalization(Y)
+                incumbent_value = np.min(y_)
 
             if self.acq_func == 'ei':
                 self.acquisition_function.update(model=self.model, eta=incumbent_value,

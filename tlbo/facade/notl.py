@@ -10,7 +10,7 @@ class NoTL(BaseFacade):
         self.method_id = 'notl'
 
     def train(self, X: np.ndarray, y: np.array):
-        self.target_surrogate = self.build_single_surrogate(X, y, normalize='none')
+        self.target_surrogate = self.build_single_surrogate(X, y, normalize='standardize')
 
     def predict(self, X: np.array):
         mu, var = self.target_surrogate.predict(X)
