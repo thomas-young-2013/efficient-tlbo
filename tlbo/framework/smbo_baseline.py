@@ -56,6 +56,7 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         self.configurations = list()
         self.failed_configurations = list()
         self.perfs = list()
+        self.reduce_cnt = 0
 
         if enable_init_design:
             self.initial_configurations = self.initial_design(initial_runs)
@@ -234,8 +235,8 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         task_indexes = [idx_ for idx_ in task_indexes if weights[idx_] > 0.]
 
         # Calculate the percentiles.
-        p_min = 20
-        p_max = 70
+        p_min = 10
+        p_max = 60
         percentiles = [p_max] * len(self.source_hpo_data)
         for _task_id in task_indexes:
             _p = p_min + (1 - weights[_task_id]) * (p_max - p_min)
@@ -276,6 +277,23 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         else:
             X_candidate = self.choose_config_target_space()
         assert len(X_candidate) > 0
+
+        # Check space
+        print('Global Optimum:' + str(min(self.target_hpo_measurements.values())))
+        best_perf_in_candidate = 1
+        best_config = None
+        for config in X_candidate:
+            perf = self.target_hpo_measurements[config]
+            if perf < best_perf_in_candidate:
+                best_perf_in_candidate = perf
+                best_config = config
+        print('Current Optimum:' + str(best_perf_in_candidate))
+        print('Optimum in space:' + str(bool(min(self.target_hpo_measurements.values()) == best_perf_in_candidate)))
+        print("Reduced: %.2f/%.2f, Rate: %.2f" % (
+            len(X_candidate), len(self.target_hpo_measurements), len(X_candidate) / len(self.target_hpo_measurements)))
+        if len(X_candidate) != len(self.target_hpo_measurements):
+            self.reduce_cnt += 1
+        print("Reduced space is applied for %d iterations!" % self.reduce_cnt)
 
         if self.rng.rand() < self.get_random_prob(self.iteration_id):
             excluded_set = list()
