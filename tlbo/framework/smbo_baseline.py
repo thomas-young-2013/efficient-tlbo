@@ -25,6 +25,7 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
                  config_space: ConfigurationSpace,
                  surrogate_model: BaseFacade,
                  acq_func: str = 'ei',
+                 mode='best',
                  source_hpo_data=None,
                  enable_init_design=False,
                  num_src_hpo_trial=50,
@@ -45,6 +46,7 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         self.num_src_hpo_trial = num_src_hpo_trial
         self.surrogate_type = surrogate_type
         self.acq_func = acq_func
+        self.mode = mode
 
         self.max_iterations = max_runs
         self.iteration_id = 0
@@ -84,6 +86,8 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         # Set the parameter in metric.
         self.ys = list(self.target_hpo_measurements.values())
         self.y_max, self.y_min = np.max(self.ys), np.min(self.ys)
+
+        self.reduce_cnt = 0
 
     def get_adtm(self):
         y_inc = self.get_inc_y()
@@ -220,7 +224,12 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         self.model.train(X, Y)
         print('Training surrogate model took %.3f' % (time.time() - start_time))
 
-        y_, _, _ = zero_mean_unit_var_normalization(Y)
+        if self.model.method_id in ['tst', 'tstm', 'pogpe']:
+            y_, _, _ = zero_one_normalization(Y)
+        elif self.model.method_id in ['scot']:
+            y_ = Y.copy()
+        else:
+            y_, _, _ = zero_mean_unit_var_normalization(Y)
         incumbent_value = np.min(y_)
 
         if self.acq_func == 'ei':
@@ -231,8 +240,15 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
 
         # Do task selection.
         weights = self.model.w[:-1]
-        task_indexes = np.argsort(weights)[-1:]
-        task_indexes = [idx_ for idx_ in task_indexes if weights[idx_] > 0.]
+        if self.mode == 'best':
+            task_indexes = np.argsort(weights)[-1:]  # space
+            task_indexes = [idx_ for idx_ in task_indexes if weights[idx_] > 0.]
+        elif self.mode == 'all':
+            task_indexes = np.argsort(weights)  # space-all
+            task_indexes = [idx_ for idx_ in task_indexes if weights[idx_] > 0.]
+        elif self.mode == 'sample':
+            weights_ = [x / sum(weights) for x in weights]  # space-sample
+            task_indexes = np.random.choice(list(range(len(weights))), 1, p=weights_)
 
         # Calculate the percentiles.
         p_min = 10

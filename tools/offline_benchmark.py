@@ -5,6 +5,7 @@ import time
 import pickle
 import argparse
 import numpy as np
+from functools import partial
 from tqdm import tqdm, trange
 
 sys.path.append(os.getcwd())
@@ -23,13 +24,15 @@ from tlbo.facade.topo_variant2 import TOPO
 from tlbo.facade.topo_variant3 import TOPO_V3
 from tlbo.facade.topo import TransBO_RGPE
 from tlbo.facade.mfes import MFES
+from tlbo.facade.norm import NORM
+from tlbo.facade.norm_minus import NORMMinus
 from tlbo.facade.random_surrogate import RandomSearch
 from tlbo.framework.smbo_offline import SMBO_OFFLINE
 from tlbo.framework.smbo_sst import SMBO_SEARCH_SPACE_TRANSFER
 from tlbo.framework.smbo_baseline import SMBO_SEARCH_SPACE_Enlarge
 from tlbo.config_space.space_instance import get_configspace_instance
 
-from utils import seeds
+from tools.utils import seeds
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--task_id', type=str, default='main')
@@ -175,8 +178,8 @@ if __name__ == "__main__":
     if not os.path.exists(exp_dir):
         os.makedirs(exp_dir)
 
-    for mth in tqdm(baselines):
-        for rep_id in trange(start_id, start_id + rep):
+    for rep_id in trange(start_id, start_id + rep):
+        for mth in tqdm(baselines):
             seed = seeds[rep_id]
             print('=== start rep', rep_id, 'seed', seed)
             exp_results = list()
@@ -236,8 +239,11 @@ if __name__ == "__main__":
                     surrogate_class = TOPO_V3
                 elif mth == 'ultra':
                     surrogate_class = RGPE
-                elif mth == 'space':
-                    surrogate_class = MFES
+                elif mth in ['space', 'space-all', 'space-sample']:
+                    surrogate_class = NORM
+                elif mth in ['space-', 'space-all-', 'space-sample-']:
+                    surrogate_class = NORMMinus
+
                 else:
                     raise ValueError('Invalid baseline name - %s.' % mth)
                 if mth not in ['mklgp', 'scot', 'tstm']:
@@ -251,8 +257,12 @@ if __name__ == "__main__":
                 smbo_framework = SMBO_OFFLINE
                 if mth == "ultra":
                     smbo_framework = SMBO_SEARCH_SPACE_TRANSFER
-                if mth == "space":
-                    smbo_framework = SMBO_SEARCH_SPACE_Enlarge
+                if mth in ["space", 'space-']:
+                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='best')
+                elif mth in ['space-all', 'space-all-']:
+                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='all')
+                elif mth in ['space-sample', 'space-sample-']:
+                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='sample')
 
                 smbo = smbo_framework(target_hpo_data, config_space, surrogate,
                                       random_seed=seed, max_runs=trial_num,
