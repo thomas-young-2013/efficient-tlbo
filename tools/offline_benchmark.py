@@ -1,4 +1,11 @@
 import os
+NUM_THREADS = "1"
+os.environ["OMP_NUM_THREADS"] = NUM_THREADS         # export OMP_NUM_THREADS=1
+os.environ["OPENBLAS_NUM_THREADS"] = NUM_THREADS    # export OPENBLAS_NUM_THREADS=1
+os.environ["MKL_NUM_THREADS"] = NUM_THREADS         # export MKL_NUM_THREADS=1
+os.environ["VECLIB_MAXIMUM_THREADS"] = NUM_THREADS  # export VECLIB_MAXIMUM_THREADS=1
+os.environ["NUMEXPR_NUM_THREADS"] = NUM_THREADS     # export NUMEXPR_NUM_THREADS=1
+
 import re
 import sys
 import time
@@ -39,14 +46,14 @@ parser.add_argument('--task_id', type=str, default='main')
 parser.add_argument('--exp_id', type=str, default='main')
 parser.add_argument('--algo_id', type=str, default='random_forest')
 parser.add_argument('--methods', type=str, default='rgpe')
-parser.add_argument('--surrogate_type', type=str, default='rf')
+parser.add_argument('--surrogate_type', type=str, default='gp')
 parser.add_argument('--test_mode', type=str, default='random')
 parser.add_argument('--trial_num', type=int, default=50)
 parser.add_argument('--init_num', type=int, default=0)
 parser.add_argument('--run_num', type=int, default=-1)
 parser.add_argument('--num_source_data', type=int, default=50)
 parser.add_argument('--num_source_problem', type=int, default=-1)
-parser.add_argument('--task_set', type=str, default='full')
+parser.add_argument('--task_set', type=str, default='class1', choices=['class1', 'class2', 'full'])
 parser.add_argument('--num_target_data', type=int, default=10000)
 parser.add_argument('--num_random_data', type=int, default=20000)
 parser.add_argument('--save_weight', type=str, default='false')

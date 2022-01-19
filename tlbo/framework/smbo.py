@@ -151,7 +151,7 @@ class SMBO(BasePipeline):
             if default_config not in (self.configurations + self.failed_configurations):
                 return default_config
             else:
-                return self._random_search.maximize(runhistory=self.history_container, num_points=1)[0]
+                return self._random_search.maximize(runhistory=self.history_container, num_points=5000)[0]
 
         if self.random_configuration_chooser.check(self.iteration_id):
             return self.config_space.sample_configuration()

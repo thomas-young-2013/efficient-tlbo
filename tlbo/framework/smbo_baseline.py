@@ -95,11 +95,12 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         return (y_inc - self.y_min) / (self.y_max - self.y_min)
 
     def get_inc_y(self):
-        if isinstance(self.model, NoTL):
-            _perfs = [_perf for (_, _perf) in list(self.target_hpo_measurements.items())[:self.iteration_id]]
-            y_inc = np.min(_perfs)
-        else:
-            y_inc = np.min(self.perfs)
+        # if isinstance(self.model, NoTL):
+        #     _perfs = [_perf for (_, _perf) in list(self.target_hpo_measurements.items())[:self.iteration_id]]
+        #     y_inc = np.min(_perfs)
+        # else:
+        #     y_inc = np.min(self.perfs)
+        y_inc = np.min(self.perfs)
         return y_inc
 
     def run(self):
@@ -131,6 +132,10 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
                 initial_configs.append(_config)
         return initial_configs
 
+    def evaluate(self, config):
+        perf = self.target_hpo_measurements[config]
+        return perf
+
     def iterate(self):
         if len(self.configurations) == 0:
             X = np.array([])
@@ -146,7 +151,7 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
 
         if config not in (self.configurations + self.failed_configurations):
             # Evaluate this configuration.
-            perf = self.target_hpo_measurements[config]
+            perf = self.evaluate(config)
             if perf == MAXINT:
                 trial_info = 'failed configuration evaluation.'
                 trial_state = FAILDED
@@ -261,6 +266,8 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         print('Percentiles', percentiles)
         self.prepare_classifier(task_indexes, percentiles)
 
+        self.update_configuration_list()    # for online benchmark
+
         X_ALL = convert_configurations_to_array(self.configuration_list)
         y_pred = list()
         for _task_id in task_indexes:
@@ -295,21 +302,7 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         assert len(X_candidate) > 0
 
         # Check space
-        print('Global Optimum:' + str(min(self.target_hpo_measurements.values())))
-        best_perf_in_candidate = 1
-        best_config = None
-        for config in X_candidate:
-            perf = self.target_hpo_measurements[config]
-            if perf < best_perf_in_candidate:
-                best_perf_in_candidate = perf
-                best_config = config
-        print('Current Optimum:' + str(best_perf_in_candidate))
-        print('Optimum in space:' + str(bool(min(self.target_hpo_measurements.values()) == best_perf_in_candidate)))
-        print("Reduced: %.2f/%.2f, Rate: %.2f" % (
-            len(X_candidate), len(self.target_hpo_measurements), len(X_candidate) / len(self.target_hpo_measurements)))
-        if len(X_candidate) != len(self.target_hpo_measurements):
-            self.reduce_cnt += 1
-        print("Reduced space is applied for %d iterations!" % self.reduce_cnt)
+        self.check_space(X_candidate)
 
         if self.rng.rand() < self.get_random_prob(self.iteration_id):
             excluded_set = list()
@@ -337,7 +330,7 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         start_time = time.time()
         sorted_configs = acq_optimizer.maximize(
             runhistory=self.history_container,
-            num_points=1
+            num_points=5000
         )
         print('Optimizing Acq. func took %.3f' % (time.time() - start_time))
         for _config in sorted_configs:
@@ -413,6 +406,26 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
             return 0.1
         else:
             return 0.1
+
+    def update_configuration_list(self):
+        return
+
+    def check_space(self, X_candidate):
+        print('Global Optimum:' + str(min(self.target_hpo_measurements.values())))
+        best_perf_in_candidate = 1
+        best_config = None
+        for config in X_candidate:
+            perf = self.target_hpo_measurements[config]
+            if perf < best_perf_in_candidate:
+                best_perf_in_candidate = perf
+                best_config = config
+        print('Current Optimum:' + str(best_perf_in_candidate))
+        print('Optimum in space:' + str(bool(min(self.target_hpo_measurements.values()) == best_perf_in_candidate)))
+        print("Reduced: %.2f/%.2f, Rate: %.2f" % (
+            len(X_candidate), len(self.target_hpo_measurements), len(X_candidate) / len(self.target_hpo_measurements)))
+        if len(X_candidate) != len(self.target_hpo_measurements):
+            self.reduce_cnt += 1
+        print("Reduced space is applied for %d iterations!" % self.reduce_cnt)
 
     def choose_config_target_space(self):
         return self.configuration_list

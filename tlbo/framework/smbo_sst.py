@@ -90,11 +90,12 @@ class SMBO_SEARCH_SPACE_TRANSFER(BasePipeline):
         return (y_inc - self.y_min) / (self.y_max - self.y_min)
 
     def get_inc_y(self):
-        if isinstance(self.model, NoTL):
-            _perfs = [_perf for (_, _perf) in list(self.target_hpo_measurements.items())[:self.iteration_id]]
-            y_inc = np.min(_perfs)
-        else:
-            y_inc = np.min(self.perfs)
+        # if isinstance(self.model, NoTL):
+        #     _perfs = [_perf for (_, _perf) in list(self.target_hpo_measurements.items())[:self.iteration_id]]
+        #     y_inc = np.min(_perfs)
+        # else:
+        #     y_inc = np.min(self.perfs)
+        y_inc = np.min(self.perfs)
         return y_inc
 
     def run(self):
@@ -126,6 +127,10 @@ class SMBO_SEARCH_SPACE_TRANSFER(BasePipeline):
                 initial_configs.append(_config)
         return initial_configs
 
+    def evaluate(self, config):
+        perf = self.target_hpo_measurements[config]
+        return perf
+
     def iterate(self):
         if len(self.configurations) == 0:
             X = np.array([])
@@ -141,7 +146,7 @@ class SMBO_SEARCH_SPACE_TRANSFER(BasePipeline):
 
         if config not in (self.configurations + self.failed_configurations):
             # Evaluate this configuration.
-            perf = self.target_hpo_measurements[config]
+            perf = self.evaluate(config)
             if perf == MAXINT:
                 trial_info = 'failed configuration evaluation.'
                 trial_state = FAILDED
@@ -234,6 +239,8 @@ class SMBO_SEARCH_SPACE_TRANSFER(BasePipeline):
         task_indexes = np.argsort(weights)[-5:]
         task_indexes = [idx_ for idx_ in task_indexes if weights[idx_] > 0.]
 
+        self.update_configuration_list()  # for online benchmark
+
         X_ALL = convert_configurations_to_array(self.configuration_list)
         y_pred = list()
         for _idx, _clf in enumerate(self.space_classifier):
@@ -283,15 +290,21 @@ class SMBO_SEARCH_SPACE_TRANSFER(BasePipeline):
         start_time = time.time()
         sorted_configs = acq_optimizer.maximize(
             runhistory=self.history_container,
-            num_points=1
+            num_points=5000
         )
         print('Optimizing Acq. func took %.3f' % (time.time() - start_time))
         for _config in sorted_configs:
             if _config not in (self.configurations + self.failed_configurations):
                 return _config
-            else:
-                print('The same config is recommended.')
-                return _config
+
+        excluded_set = list()
+        candidate_set = set(X_candidate)
+        for _config in self.configuration_list:
+            if _config not in candidate_set and _config not in (self.configurations + self.failed_configurations):
+                excluded_set.append(_config)
+        if len(excluded_set) == 0:
+            excluded_set = self.configuration_list
+        return self.sample_random_config(config_set=excluded_set)[0]
 
     def build_classifier(self):
         # Train the binary classifier.
@@ -363,3 +376,6 @@ class SMBO_SEARCH_SPACE_TRANSFER(BasePipeline):
             print('Warning: feasible set is empty!')
             X_candidate = self.configuration_list
         return X_candidate
+
+    def update_configuration_list(self):
+        return

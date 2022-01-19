@@ -8,7 +8,7 @@ import numpy as np
 from tlbo.acquisition_function.acquisition import AbstractAcquisitionFunction
 from tlbo.config_space import get_one_exchange_neighbourhood, \
     Configuration, ConfigurationSpace
-from tlbo.optimizer.random_configuration_chooser import ChooserNoCoolDown
+from tlbo.optimizer.random_configuration_chooser import ChooserNoCoolDown, ChooserProb
 from tlbo.utils.constants import MAXINT
 from tlbo.utils.history_container import HistoryContainer
 
@@ -265,7 +265,7 @@ class LocalSearch(AcquisitionFunctionMaximizer):
             # Get one exchange neighborhood returns an iterator (in contrast of
             # the previously returned list).
             all_neighbors = get_one_exchange_neighbourhood(
-                incumbent, seed=self.rng.seed())
+                incumbent, seed=self.rng.randint(0, 10000))
 
             for neighbor in all_neighbors:
                 s_time = time.time()
@@ -375,14 +375,14 @@ class InterleavedLocalAndRandomSearch(AcquisitionFunctionMaximizer):
 
     """
     def __init__(
-            self,
-            acquisition_function: AbstractAcquisitionFunction,
-            config_space: ConfigurationSpace,
-            rng: Union[bool, np.random.RandomState] = None,
-            max_steps: Optional[int] = None,
-            n_steps_plateau_walk: int = 10,
-            n_sls_iterations: int = 10
-
+        self,
+        acquisition_function: AbstractAcquisitionFunction,
+        config_space: ConfigurationSpace,
+        rng: Union[bool, np.random.RandomState] = None,
+        max_steps: Optional[int] = None,
+        n_steps_plateau_walk: int = 10,
+        n_sls_iterations: int = 10,
+        rand_prob=0.1,
     ):
         super().__init__(acquisition_function, config_space, rng)
         self.random_search = RandomSearch(
@@ -398,6 +398,7 @@ class InterleavedLocalAndRandomSearch(AcquisitionFunctionMaximizer):
             n_steps_plateau_walk=n_steps_plateau_walk
         )
         self.n_sls_iterations = n_sls_iterations
+        self.random_chooser = ChooserProb(prob=rand_prob, rng=rng)
 
         # =======================================================================
         # self.local_search = DiffOpt(
@@ -411,7 +412,7 @@ class InterleavedLocalAndRandomSearch(AcquisitionFunctionMaximizer):
             self,
             runhistory: HistoryContainer,
             num_points: int,
-            random_configuration_chooser,
+            random_configuration_chooser=None,
             **kwargs
     ) -> Iterable[Configuration]:
         """Maximize acquisition function using ``_maximize``.
@@ -436,6 +437,8 @@ class InterleavedLocalAndRandomSearch(AcquisitionFunctionMaximizer):
         Iterable[Configuration]
             to be concrete: ~litebo.ei_optimization.ChallengerList
         """
+        if random_configuration_chooser is None:
+            random_configuration_chooser = self.random_chooser
 
         next_configs_by_local_search = self.local_search._maximize(
             runhistory, self.n_sls_iterations, **kwargs

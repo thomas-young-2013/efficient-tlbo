@@ -96,11 +96,12 @@ class SMBO_OFFLINE(BasePipeline):
         return (y_inc - self.y_min) / (self.y_max - self.y_min)
 
     def get_inc_y(self):
-        if isinstance(self.model, NoTL):
-            _perfs = [_perf for (_, _perf) in list(self.target_hpo_measurements.items())[:self.iteration_id]]
-            y_inc = np.min(_perfs)
-        else:
-            y_inc = np.min(self.perfs)
+        # if isinstance(self.model, NoTL):
+        #     _perfs = [_perf for (_, _perf) in list(self.target_hpo_measurements.items())[:self.iteration_id]]
+        #     y_inc = np.min(_perfs)
+        # else:
+        #     y_inc = np.min(self.perfs)
+        y_inc = np.min(self.perfs)
         return y_inc
 
     def run(self):
@@ -132,6 +133,10 @@ class SMBO_OFFLINE(BasePipeline):
                 initial_configs.append(_config)
         return initial_configs
 
+    def evaluate(self, config):
+        perf = self.target_hpo_measurements[config]
+        return perf
+
     def iterate(self):
         if len(self.configurations) == 0:
             X = np.array([])
@@ -147,7 +152,7 @@ class SMBO_OFFLINE(BasePipeline):
 
         if config not in (self.configurations + self.failed_configurations):
             # Evaluate this configuration.
-            perf = self.target_hpo_measurements[config]
+            perf = self.evaluate(config)
             if perf == MAXINT:
                 trial_info = 'failed configuration evaluation.'
                 trial_state = FAILDED
@@ -240,7 +245,7 @@ class SMBO_OFFLINE(BasePipeline):
             start_time = time.time()
             sorted_configs = self.acq_optimizer.maximize(
                 runhistory=self.history_container,
-                num_points=1
+                num_points=5000,
             )
             print('optimizing acq func took', time.time() - start_time)
             for _config in sorted_configs:
