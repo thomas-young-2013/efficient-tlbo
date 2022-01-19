@@ -15,7 +15,7 @@ import numpy as np
 from functools import partial
 from tqdm import tqdm, trange
 
-sys.path.append(os.getcwd())
+sys.path.insert(0, '.')
 from tlbo.facade.notl import NoTL
 from tlbo.facade.rgpe import RGPE
 from tlbo.facade.obtl_es import ES
@@ -96,7 +96,7 @@ pattern = '(.*)-(%s)-(\d+).pkl' % algo_str
 def load_hpo_history():
     source_hpo_ids, source_hpo_data = list(), list()
     random_hpo_data = list()
-    for _file in sorted(os.listdir(data_dir)):
+    for _file in tqdm(sorted(os.listdir(data_dir))):
         if _file.endswith('.pkl') and _file.find(algo_id) != -1:
             result = re.search(pattern, _file, re.I)
             if result is None:
@@ -123,7 +123,7 @@ def load_hpo_history():
 
     # Load random hpo data to test the transfer performance.
     if test_mode == 'random':
-        for id, hpo_id in enumerate(source_hpo_ids):
+        for id, hpo_id in tqdm(list(enumerate(source_hpo_ids))):
             _file = data_dir + '%s-%s-random-%d.pkl' % (hpo_id, algo_id, num_random_data)
             with open(_file, 'rb') as f:
                 data = pickle.load(f)
@@ -185,15 +185,17 @@ if __name__ == "__main__":
     if not os.path.exists(exp_dir):
         os.makedirs(exp_dir)
 
-    for rep_id in trange(start_id, start_id + rep):
-        for mth in tqdm(baselines):
+    pbar = tqdm(total=rep * len(baselines) * run_num * trial_num)
+    for rep_id in range(start_id, start_id + rep):
+        for mth in baselines:
             seed = seeds[rep_id]
             print('=== start rep', rep_id, 'seed', seed)
             exp_results = list()
             target_weights = list()
-            for id in trange(run_num):
+            for id in range(run_num):
                 print('=' * 20)
                 print('[%s-%s] Evaluate %d-th problem - %s[%d].' % (algo_id, mth, id + 1, hpo_ids[id], rep_id))
+                pbar.set_description('[%s-%s] %d-th - %s[%d]' % (algo_id, mth, id + 1, hpo_ids[id], rep_id))
                 start_time = time.time()
 
                 # Generate the source and target hpo data.
@@ -295,6 +297,7 @@ if __name__ == "__main__":
                         time_taken = time.time() - start_time
                         adtm, y_inc = smbo.get_adtm(), smbo.get_inc_y()
                         result.append([adtm, y_inc, time_taken])
+                    pbar.update(1)
                 exp_results.append(result)
                 print('In %d-th problem: %s' % (id, hpo_ids[id]), 'adtm, y_inc', result[-1])
                 print('min/max', smbo.y_min, smbo.y_max)
@@ -325,3 +328,4 @@ if __name__ == "__main__":
                         with open(exp_dir + mth_file, 'wb') as f:
                             data = target_weights
                             pickle.dump(data, f)
+    pbar.close()
