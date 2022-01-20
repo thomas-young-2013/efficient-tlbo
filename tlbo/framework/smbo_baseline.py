@@ -4,6 +4,7 @@ from typing import List, Dict
 from sklearn.svm import SVC
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
+from ConfigSpace import UniformFloatHyperparameter, UniformIntegerHyperparameter
 
 from tlbo.model.util_funcs import get_rng, get_types
 from tlbo.acquisition_function.acquisition import EI
@@ -93,6 +94,8 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         self.use_correct_rate = False
 
         if self.mode in ['box', 'ellipsoid']:
+            continuous_types = (UniformFloatHyperparameter, UniformIntegerHyperparameter)
+            self.continuous_mask = [isinstance(hp, continuous_types) for hp in self.config_space.get_hyperparameters()]
             self.calculate_box_area()
 
     def get_adtm(self):
@@ -493,8 +496,8 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
             idx = np.argmin(perfs)
             incumbent_src_configs.append(configs[idx])
         X_incumbents = convert_configurations_to_array(incumbent_src_configs)
-        # todo: exclude categorical params
-        X_incumbents_ = X_incumbents.copy()
+        # exclude categorical params
+        X_incumbents_ = X_incumbents[:, self.continuous_mask]
 
         if self.mode == 'ellipsoid':
             raise NotImplementedError
@@ -509,8 +512,8 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         [NIPS 2019] Learning search spaces for Bayesian optimization: Another view of hyperparameter transfer learning
         """
         X_ALL = convert_configurations_to_array(self.configuration_list)
-        # todo: exclude categorical params
-        X_ALL_ = X_ALL.copy()
+        # exclude categorical params
+        X_ALL_ = X_ALL[:, self.continuous_mask]
 
         if self.mode == 'ellipsoid':
             raise NotImplementedError
