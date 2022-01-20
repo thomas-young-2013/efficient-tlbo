@@ -88,6 +88,9 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         self.y_max, self.y_min = np.max(self.ys), np.min(self.ys)
 
         self.reduce_cnt = 0
+        self.p_min = 10
+        self.p_max = 60
+        self.use_correct_rate = False
 
     def get_adtm(self):
         y_inc = self.get_inc_y()
@@ -243,63 +246,8 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         else:
             raise ValueError('invalid acquisition function ~ %s.' % self.acq_func)
 
-        # Do task selection.
-        weights = self.model.w[:-1]
-        if self.mode == 'best':
-            task_indexes = np.argsort(weights)[-1:]  # space
-            task_indexes = [idx_ for idx_ in task_indexes if weights[idx_] > 0.]
-        elif self.mode == 'all':
-            task_indexes = np.argsort(weights)  # space-all
-            task_indexes = [idx_ for idx_ in task_indexes if weights[idx_] > 0.]
-        elif self.mode == 'sample':
-            weights_ = [x / sum(weights) for x in weights]  # space-sample
-            task_indexes = np.random.choice(list(range(len(weights))), 1, p=weights_)
-
-        # Calculate the percentiles.
-        p_min = 10
-        p_max = 60
-        percentiles = [p_max] * len(self.source_hpo_data)
-        for _task_id in task_indexes:
-            _p = p_min + (1 - weights[_task_id]) * (p_max - p_min)
-            percentiles[_task_id] = _p
-        print('Task Indexes', task_indexes)
-        print('Percentiles', percentiles)
-        self.prepare_classifier(task_indexes, percentiles)
-
-        self.update_configuration_list()    # for online benchmark
-
-        X_ALL = convert_configurations_to_array(self.configuration_list)
-        y_pred = list()
-        for _task_id in task_indexes:
-            y_pred.append(self.space_classifier[_task_id].predict(X_ALL))
-
-        X_candidate = list()
-        if len(y_pred) > 0:
-            # Count the #intersection.
-            pred_mat = np.array(y_pred)
-            # print(pred_mat.shape)
-            # print(np.sum(pred_mat))
-            _cnt = 0
-            config_indexes = list()
-            for _col in range(pred_mat.shape[1]):
-                if (pred_mat[:, _col] == 1).all():
-                    _cnt += 1
-                    config_indexes.append(_col)
-            print('The intersection of candidate space is %d.' % _cnt)
-
-            for _idx in config_indexes:
-                X_candidate.append(self.configuration_list[_idx])
-            print('The candidate space size is %d.' % len(X_candidate))
-
-            if len(X_candidate) == 0:
-                # Deal with the space with no candidates.
-                if len(self.configurations) <= 20:
-                    X_candidate = self.configuration_list
-                else:
-                    X_candidate = self.choose_config_target_space()
-        else:
-            X_candidate = self.choose_config_target_space()
-        assert len(X_candidate) > 0
+        # Select space
+        X_candidate = self.get_X_candidate()
 
         # Check space
         self.check_space(X_candidate)
@@ -337,6 +285,7 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
             if _config not in (self.configurations + self.failed_configurations):
                 return _config
 
+        print('[Warning] Reach unexpected?')
         excluded_set = list()
         candidate_set = set(X_candidate)
         for _config in self.configuration_list:
@@ -345,6 +294,79 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         if len(excluded_set) == 0:
             excluded_set = self.configuration_list
         return self.sample_random_config(config_set=excluded_set)[0]
+
+    def get_X_candidate(self):
+        if self.mode in ['box', 'ellipsoid']:
+            return self.get_X_candidate_box()
+
+        # Do task selection.
+        if self.use_correct_rate:
+            weights = self.model.correct_rate[:-1]  # exclude target weight
+            print('use correct rate:', weights)
+        else:
+            weights = self.model.w[:-1]  # exclude target weight
+
+        if self.mode == 'best':
+            task_indexes = np.argsort(weights)[-1:]  # space
+            task_indexes = [idx_ for idx_ in task_indexes if weights[idx_] > 0.]
+        elif self.mode == 'all':
+            task_indexes = np.argsort(weights)  # space-all
+            task_indexes = [idx_ for idx_ in task_indexes if weights[idx_] > 0.]
+        elif self.mode == 'sample':
+            weights_ = [x / sum(weights) for x in weights]  # space-sample
+            task_indexes = np.random.choice(list(range(len(weights))), 1, p=weights_)
+
+        # Calculate the percentiles.
+        p_min = self.p_min
+        p_max = self.p_max
+        percentiles = [p_max] * len(self.source_hpo_data)
+        for _task_id in task_indexes:
+            if self.use_correct_rate:
+                _p = p_min + (1 - 2 * max(weights[_task_id] - 0.5, 0)) * (p_max - p_min)
+            else:
+                _p = p_min + (1 - weights[_task_id]) * (p_max - p_min)
+            percentiles[_task_id] = _p
+        print('Task Indexes', task_indexes)
+        print('Percentiles', percentiles)
+        self.prepare_classifier(task_indexes, percentiles)
+
+        self.update_configuration_list()  # for online benchmark
+
+        X_ALL = convert_configurations_to_array(self.configuration_list)
+        y_pred = list()
+        for _task_id in task_indexes:
+            y_pred.append(self.space_classifier[_task_id].predict(X_ALL))
+
+        X_candidate = list()
+        if len(y_pred) > 0:
+            # Count the #intersection.
+            pred_mat = np.array(y_pred)
+            # print(pred_mat.shape)
+            # print(np.sum(pred_mat))
+            _cnt = 0
+            config_indexes = list()
+            for _col in range(pred_mat.shape[1]):
+                if (pred_mat[:, _col] == 1).all():
+                    _cnt += 1
+                    config_indexes.append(_col)
+            print('The intersection of candidate space is %d.' % _cnt)
+
+            for _idx in config_indexes:
+                X_candidate.append(self.configuration_list[_idx])
+            print('The candidate space size is %d.' % len(X_candidate))
+
+            if len(X_candidate) == 0:
+                print('[Warning] Intersect=0, please check!')
+                # Deal with the space with no candidates.
+                if len(self.configurations) <= 20:
+                    X_candidate = self.configuration_list
+                else:
+                    print('[Warning] len(y_pred)=0. choose_config_target_space, please check!')
+                    X_candidate = self.choose_config_target_space()
+        else:
+            X_candidate = self.choose_config_target_space()
+        assert len(X_candidate) > 0
+        return X_candidate
 
     def prepare_classifier(self, task_ids, percentiles):
         # Train the binary classifier.
@@ -402,6 +424,9 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         print('Building base classifier took %.3fs.' % (time.time() - start_time))
 
     def get_random_prob(self, iter_id):
+        if self.mode in ['ellipsoid', 'box']:   # todo
+            return 0
+
         if iter_id <= 25:
             return 0.1
         else:
@@ -453,3 +478,19 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         #     print('Warning: feasible set is empty!')
         #     X_candidate = self.configuration_list
         # return X_candidate
+
+    def get_X_candidate_box(self):
+        """
+        [NIPS 2019] Learning search spaces for Bayesian optimization: Another view of hyperparameter transfer learning
+        """
+        X_ALL = convert_configurations_to_array(self.configuration_list)
+        X_candidate = list()
+
+        if self.mode == 'ellipsoid':
+            raise NotImplementedError
+        elif self.mode == 'box':
+            raise NotImplementedError
+            # assert len(X_candidate) > 0
+            # return X_candidate
+        else:
+            raise ValueError(self.mode)

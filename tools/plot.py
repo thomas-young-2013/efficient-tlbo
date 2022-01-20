@@ -28,7 +28,7 @@ plt.rcParams["legend.fontsize"] = 15
 label_fontsize = 20
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--surrogate_type', type=str, default='rf')
+parser.add_argument('--surrogate_type', type=str, default='gp')
 parser.add_argument('--metric', type=str, default='rank')
 parser.add_argument('--exp_id', type=str, default='exp1')
 parser.add_argument('--task_id', type=str, default='main')
@@ -83,10 +83,15 @@ def fetch_color_marker(m_list):
     color_list = ['red', 'orchid', 'royalblue', 'brown', 'purple', 'orange', 'yellowgreen', 'navy', 'green', 'black']
     markers = ['s', '^', '*', 'v', 'o', 'p', '2', 'x', '+', 'H']
 
+    undefined_cnt = 0
+
     def fill_values(name, idx):
         color_dict[name] = color_list[idx]
         marker_dict[name] = markers[idx]
-        names_dict[name] = method_names[idx]
+        if name not in names_dict:
+            names_dict[name] = name.replace('_', '\\_')
+        else:
+            names_dict[name] = method_names[idx]
 
     for name in m_list:
         if exp_id == 'exp4':
@@ -119,7 +124,9 @@ def fetch_color_marker(m_list):
                 if name.startswith('es') or name.startswith('obtl'):
                     fill_values(name, 0)
                 else:
-                    raise ValueError('Invalid method - %s.' % name)
+                    fill_values(name, undefined_cnt)
+                    undefined_cnt = (undefined_cnt + 1) % len(color_list)
+                    # raise ValueError('Invalid method - %s.' % name)
         else:
             raise ValueError('Invalid exp id - %s.' % exp_id)
     return color_dict, marker_dict, names_dict, method_ids
@@ -197,6 +204,7 @@ if __name__ == "__main__":
 
             label_name = r'\textbf{%s}' % names_dict[method]
             x = list(range(len(array[1])))
+            lw = 2 if method in method_ids else 1
             if metric == 'adtm':
                 y = array[1][:, 1]
                 print(array[0].shape)
@@ -207,7 +215,7 @@ if __name__ == "__main__":
                         marker=marker_dict[method], markersize=ms, markevery=me
                         )
 
-                line = mlines.Line2D([], [], color=color_dict[method], marker=marker_dict[method],
+                line = mlines.Line2D([], [], lw=lw, color=color_dict[method], marker=marker_dict[method],
                                      markersize=ms, label=label_name)
                 handles.append(line)
             elif metric == 'rank':
@@ -226,13 +234,14 @@ if __name__ == "__main__":
                     ranking_std_dict[method].append(std_ranking_dict[method])
             for idx, method in enumerate(methods):
                 label_name = r'\textbf{%s}' % names_dict[method]
+                lw = 2 if method in method_ids else 1
                 ax.plot(x, ranking_dict[method], lw=lw,
                         label=label_name, color=color_dict[method],
                         marker=marker_dict[method], markersize=ms, markevery=me
                         )
                 print('=' * 20)
                 print(method, ranking_std_dict[method])
-                line = mlines.Line2D([], [], color=color_dict[method], marker=marker_dict[method],
+                line = mlines.Line2D([], [], lw=lw, color=color_dict[method], marker=marker_dict[method],
                                      markersize=ms, label=label_name)
                 handles.append(line)
 

@@ -21,6 +21,8 @@ class NORMMinus(BaseFacade):
 
         self.norm = norm
 
+        self.correct_rate = None
+
     def train(self, X: np.ndarray, y: np.array):
         # Train the target surrogate and update the weight w.
         mu_list, var_list = list(), list()
@@ -103,6 +105,7 @@ class NORMMinus(BaseFacade):
 
         # Update the weights.
         correct_rate_list = [1 - x / (instance_num ** 2) for x in ranking_loss_list]
+        self.correct_rate = np.array(correct_rate_list)
         norm_sum = sum([x ** self.norm for x in correct_rate_list])
         for id in range(self.K + 1):
             self.w[id] = pow(correct_rate_list[id], self.norm) / norm_sum

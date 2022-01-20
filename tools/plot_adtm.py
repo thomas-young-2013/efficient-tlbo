@@ -29,7 +29,7 @@ plt.rcParams["legend.fontsize"] = 10    # 15
 label_fontsize = 20
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--surrogate_type', type=str, default='rf')
+parser.add_argument('--surrogate_type', type=str, default='gp')
 parser.add_argument('--exp_id', type=str, default='exp1')
 parser.add_argument('--task_id', type=str, default='main')
 parser.add_argument('--algo_id', type=str, default='random_forest')
@@ -93,10 +93,15 @@ def fetch_color_marker(m_list):
     color_list = ['red', 'orchid', 'royalblue', 'brown', 'purple', 'orange', 'yellowgreen', 'navy', 'green', 'black']
     markers = ['s', '^', '*', 'v', 'o', 'p', '2', 'x', '+', 'H']
 
+    undefined_cnt = 0
+
     def fill_values(name, idx):
         color_dict[name] = color_list[idx]
         marker_dict[name] = markers[idx]
-        names_dict[name] = method_names[idx]
+        if name not in method_ids:
+            names_dict[name] = name.replace('_', '\\_')
+        else:
+            names_dict[name] = method_names[idx]
 
     for name in m_list:
         if exp_id == 'exp4':
@@ -129,7 +134,9 @@ def fetch_color_marker(m_list):
                 if name.startswith('es') or name.startswith('obtl'):
                     fill_values(name, 0)
                 else:
-                    raise ValueError('Invalid method - %s.' % name)
+                    fill_values(name, undefined_cnt)
+                    undefined_cnt = (undefined_cnt + 1) % len(color_list)
+                    # raise ValueError('Invalid method - %s.' % name)
         else:
             raise ValueError('Invalid exp id - %s.' % exp_id)
     return color_dict, marker_dict, names_dict, method_ids
@@ -192,23 +199,25 @@ if __name__ == "__main__":
             y = array[0][data_idx][:, 0]    # todo: check adtm?
             print(array[0].shape)
             print(method, np.std(array[0], axis=0)[:, 1])
+            lw = 2 if method in method_ids else 1
             # print(x, y)
             ax.plot(x, y, lw=lw,
                     label=label_name, color=color_dict[method],
                     marker=marker_dict[method], markersize=ms, markevery=me
                     )
 
-            line = mlines.Line2D([], [], color=color_dict[method], marker=marker_dict[method],
+            line = mlines.Line2D([], [], lw=lw, color=color_dict[method], marker=marker_dict[method],
                                  markersize=ms, label=label_name)
             handles.append(line)
 
             item = np.round(array[0][data_idx][:, 1][-1], 6)  # last val perf
             row.append(item)
 
-        if exp_id == 'exp3':
-            legend = ax.legend(handles=handles, loc=1, ncol=2)
-        else:
-            legend = ax.legend(handles=handles, loc=1, ncol=3)
+        # if exp_id == 'exp3':
+        #     legend = ax.legend(handles=handles, loc=1, ncol=2)
+        # else:
+        #     legend = ax.legend(handles=handles, loc=1, ncol=3)
+        legend = ax.legend(handles=handles, loc=1, ncol=1)
         ax.xaxis.set_major_locator(ticker.MultipleLocator(5))
         ax.set_xlabel('\\textbf{Number of Trials', fontsize=label_fontsize)
 
