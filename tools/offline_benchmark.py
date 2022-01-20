@@ -252,7 +252,8 @@ if __name__ == "__main__":
                     surrogate_class = NORM
                 elif mth in ['space-', 'space-all-', 'space-sample-']:
                     surrogate_class = NORMMinus
-
+                elif mth in ['box', 'ellipsoid']:
+                    surrogate_class = NoTL
                 else:
                     raise ValueError('Invalid baseline name - %s.' % mth)
                 if mth not in ['mklgp', 'scot', 'tstm']:
@@ -263,15 +264,20 @@ if __name__ == "__main__":
                     surrogate = surrogate_class(config_space, source_hpo_data, target_hpo_data, seed,
                                                 surrogate_type=surrogate_type,
                                                 num_src_hpo_trial=n_src_data, metafeatures=dataset_meta_features)
-                smbo_framework = SMBO_OFFLINE
                 if mth == "ultra":
                     smbo_framework = SMBO_SEARCH_SPACE_TRANSFER
-                if mth in ["space", 'space-']:
+                if mth in ["space", 'space-', 'space-_v2']:
                     smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='best')
                 elif mth in ['space-all', 'space-all-']:
                     smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='all')
                 elif mth in ['space-sample', 'space-sample-']:
                     smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='sample')
+                elif mth == 'box':
+                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='box')
+                elif mth == 'ellipsoid':
+                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='ellipsoid')
+                else:
+                    smbo_framework = SMBO_OFFLINE
 
                 smbo = smbo_framework(target_hpo_data, config_space, surrogate,
                                       random_seed=seed, max_runs=trial_num,

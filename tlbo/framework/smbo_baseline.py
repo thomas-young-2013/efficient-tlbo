@@ -7,7 +7,7 @@ from sklearn.preprocessing import StandardScaler
 
 from tlbo.model.util_funcs import get_rng, get_types
 from tlbo.acquisition_function.acquisition import EI
-from tlbo.config_space import ConfigurationSpace
+from tlbo.config_space import ConfigurationSpace, Configuration
 from tlbo.facade.notl import NoTL
 from tlbo.optimizer.ei_offline_optimizer import OfflineSearch
 from tlbo.optimizer.random_configuration_chooser import ChooserProb
@@ -91,6 +91,9 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         self.p_min = 10
         self.p_max = 60
         self.use_correct_rate = False
+
+        if self.mode in ['box', 'ellipsoid']:
+            self.calculate_box_area()
 
     def get_adtm(self):
         y_inc = self.get_inc_y()
@@ -295,7 +298,7 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
             excluded_set = self.configuration_list
         return self.sample_random_config(config_set=excluded_set)[0]
 
-    def get_X_candidate(self):
+    def get_X_candidate(self) -> List[Configuration]:
         if self.mode in ['box', 'ellipsoid']:
             return self.get_X_candidate_box()
 
@@ -479,18 +482,48 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         #     X_candidate = self.configuration_list
         # return X_candidate
 
-    def get_X_candidate_box(self):
+    def calculate_box_area(self):
         """
         [NIPS 2019] Learning search spaces for Bayesian optimization: Another view of hyperparameter transfer learning
         """
-        X_ALL = convert_configurations_to_array(self.configuration_list)
-        X_candidate = list()
+        incumbent_src_configs = []
+        for hpo_evaluation_data in self.source_hpo_data:
+            configs = list(hpo_evaluation_data.keys())[:self.num_src_hpo_trial]
+            perfs = list(hpo_evaluation_data.values())[:self.num_src_hpo_trial]
+            idx = np.argmin(perfs)
+            incumbent_src_configs.append(configs[idx])
+        X_incumbents = convert_configurations_to_array(incumbent_src_configs)
+        # todo: exclude categorical params
+        X_incumbents_ = X_incumbents.copy()
 
         if self.mode == 'ellipsoid':
             raise NotImplementedError
         elif self.mode == 'box':
+            self.src_X_min_ = np.min(X_incumbents_, axis=0)
+            self.src_X_max_ = np.max(X_incumbents_, axis=0)
+        else:
+            raise ValueError(self.mode)
+
+    def get_X_candidate_box(self) -> List[Configuration]:
+        """
+        [NIPS 2019] Learning search spaces for Bayesian optimization: Another view of hyperparameter transfer learning
+        """
+        X_ALL = convert_configurations_to_array(self.configuration_list)
+        # todo: exclude categorical params
+        X_ALL_ = X_ALL.copy()
+
+        if self.mode == 'ellipsoid':
             raise NotImplementedError
-            # assert len(X_candidate) > 0
-            # return X_candidate
+        elif self.mode == 'box':
+            valid_mask = np.logical_and(self.src_X_min_ <= X_ALL_, X_ALL_ <= self.src_X_max_).all(axis=1)
+            valid_idx = np.where(valid_mask)[0].tolist()
+            if len(valid_idx) == 0:
+                print('[Warning] no candidates in box area!')
+                X_candidate = self.configuration_list
+            else:
+                X_candidate = [self.configuration_list[i] for i in valid_idx]
+
+            assert len(X_candidate) > 0
+            return X_candidate
         else:
             raise ValueError(self.mode)
