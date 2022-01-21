@@ -206,7 +206,7 @@ if __name__ == "__main__":
             x = list(range(len(array[1])))
             lw = 2 if method in method_ids else 1
             if metric == 'adtm':
-                y = array[1][:, 1]
+                y = array[1][:, 0]      # array[1]: mean over datasets, [:, 0]: adtm, [:, 1]: y_inc
                 print(array[0].shape)
                 print(method, np.std(array[0], axis=0)[:, 1])
                 # print(x, y)
