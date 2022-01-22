@@ -307,20 +307,33 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
 
         # Do task selection.
         if self.use_correct_rate:
-            weights = self.model.correct_rate[:-1]  # exclude target weight
+            weights = self.model.correct_rate.copy()  # exclude target weight
             print('use correct rate:', weights)
         else:
-            weights = self.model.w[:-1]  # exclude target weight
+            weights = self.model.w.copy()  # exclude target weight
 
         if self.mode == 'best':
+            weights = weights[:-1]
             task_indexes = np.argsort(weights)[-1:]  # space
             task_indexes = [idx_ for idx_ in task_indexes if weights[idx_] > 0.]
         elif self.mode == 'all':
+            weights = weights[:-1]
             task_indexes = np.argsort(weights)  # space-all
             task_indexes = [idx_ for idx_ in task_indexes if weights[idx_] > 0.]
         elif self.mode == 'sample':
+            # Target excluded
+            weights = weights[:-1]
             weights_ = [x / sum(weights) for x in weights]  # space-sample
             task_indexes = np.random.choice(list(range(len(weights))), 1, p=weights_)
+        elif self.mode == 'sample-new':
+            # Target should also be sampled
+            weights_ = [x / sum(weights) for x in weights]  # space-sample-new
+            task_indexes = np.random.choice(list(range(len(weights))), 1, p=weights_)
+
+        print('Task Indexes', task_indexes)
+
+        if self.mode == 'sample-new' and task_indexes[0] == len(self.source_hpo_data):
+            return self.choose_config_target_space()
 
         # Calculate the percentiles.
         p_min = self.p_min
@@ -332,8 +345,9 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
             else:
                 _p = p_min + (1 - weights[_task_id]) * (p_max - p_min)
             percentiles[_task_id] = _p
-        print('Task Indexes', task_indexes)
+
         print('Percentiles', percentiles)
+
         self.prepare_classifier(task_indexes, percentiles)
 
         self.update_configuration_list()  # for online benchmark
@@ -344,6 +358,7 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
             y_pred.append(self.space_classifier[_task_id].predict(X_ALL))
 
         X_candidate = list()
+
         if len(y_pred) > 0:
             # Count the #intersection.
             pred_mat = np.array(y_pred)
@@ -430,7 +445,7 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         print('Building base classifier took %.3fs.' % (time.time() - start_time))
 
     def get_random_prob(self, iter_id):
-        if self.mode in ['ellipsoid', 'box']:   # todo
+        if self.mode in ['ellipsoid', 'box']:  # todo
             return 0
 
         if iter_id <= 25:

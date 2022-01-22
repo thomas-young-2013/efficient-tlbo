@@ -1,10 +1,11 @@
 import os
+
 NUM_THREADS = "1"
-os.environ["OMP_NUM_THREADS"] = NUM_THREADS         # export OMP_NUM_THREADS=1
-os.environ["OPENBLAS_NUM_THREADS"] = NUM_THREADS    # export OPENBLAS_NUM_THREADS=1
-os.environ["MKL_NUM_THREADS"] = NUM_THREADS         # export MKL_NUM_THREADS=1
+os.environ["OMP_NUM_THREADS"] = NUM_THREADS  # export OMP_NUM_THREADS=1
+os.environ["OPENBLAS_NUM_THREADS"] = NUM_THREADS  # export OPENBLAS_NUM_THREADS=1
+os.environ["MKL_NUM_THREADS"] = NUM_THREADS  # export MKL_NUM_THREADS=1
 os.environ["VECLIB_MAXIMUM_THREADS"] = NUM_THREADS  # export VECLIB_MAXIMUM_THREADS=1
-os.environ["NUMEXPR_NUM_THREADS"] = NUM_THREADS     # export NUMEXPR_NUM_THREADS=1
+os.environ["NUMEXPR_NUM_THREADS"] = NUM_THREADS  # export NUMEXPR_NUM_THREADS=1
 
 import re
 import sys
@@ -33,6 +34,7 @@ from tlbo.facade.topo import TransBO_RGPE
 from tlbo.facade.mfes import MFES
 from tlbo.facade.norm import NORM
 from tlbo.facade.norm_minus import NORMMinus
+from tlbo.facade.norm_tst import NORMTST
 from tlbo.facade.random_surrogate import RandomSearch
 from tlbo.framework.smbo_offline import SMBO_OFFLINE
 from tlbo.framework.smbo_sst import SMBO_SEARCH_SPACE_TRANSFER
@@ -248,10 +250,12 @@ if __name__ == "__main__":
                     surrogate_class = TOPO_V3
                 elif mth == 'ultra':
                     surrogate_class = RGPE
-                elif mth in ['space', 'space-all', 'space-sample']:
-                    surrogate_class = NORM
-                elif mth in ['space-', 'space-all-', 'space-sample-']:
+                elif 'tst' in mth:
+                    surrogate_class = NORMTST
+                elif mth.endswith('-'):
                     surrogate_class = NORMMinus
+                elif 'space' in mth:
+                    surrogate_class = NORM
                 elif mth in ['box', 'ellipsoid']:
                     surrogate_class = NoTL
                 else:
@@ -264,13 +268,23 @@ if __name__ == "__main__":
                     surrogate = surrogate_class(config_space, source_hpo_data, target_hpo_data, seed,
                                                 surrogate_type=surrogate_type,
                                                 num_src_hpo_trial=n_src_data, metafeatures=dataset_meta_features)
+
+                if '-dif' in mth:
+                    surrogate.same = False
+                if mth.endswith('-i') or '-i-' in mth:
+                    surrogate.increasing_weight = True
+                elif mth.endswith('-d') or '-d-' in mth:
+                    surrogate.nondecreasing_weight = True
+
                 if mth == "ultra":
                     smbo_framework = SMBO_SEARCH_SPACE_TRANSFER
-                if mth in ["space", 'space-', 'space-_v2']:
+                if mth in ["space", 'space-', 'space-tst']:
                     smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='best')
-                elif mth in ['space-all', 'space-all-']:
+                elif 'all' in mth:
                     smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='all')
-                elif mth in ['space-sample', 'space-sample-']:
+                elif 'sample-new' in mth:
+                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='sample-new')
+                elif 'sample' in mth:
                     smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='sample')
                 elif mth == 'box':
                     smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='box')
@@ -287,6 +301,11 @@ if __name__ == "__main__":
                                       enable_init_design=enable_init_design,
                                       initial_runs=init_num,
                                       acq_func='ei')
+
+                smbo.p_min = 20
+                smbo.p_max = 60
+                if 'v2' in mth:
+                    smbo.use_correct_rate = True
 
                 result = list()
                 rnd_target_perfs = [_perf for (_, _perf) in list(random_test_data[id].items())]

@@ -10,8 +10,10 @@ class NORM(BaseFacade):
         self.method_id = 'norm'
         self.only_source = only_source
         self.build_source_surrogates(normalize='standardize')
-        # Weights for base surrogates and the target surrogate.
+        # Weights for space transfer
         self.w = [1. / self.K] * self.K + [0.]
+        # Weights for surrogate
+        self.sw = [1. / self.K] * self.K + [0.]
         self.scale = True
 
         # Preventing weight dilution.
@@ -22,6 +24,10 @@ class NORM(BaseFacade):
         self.norm = norm
 
         self.correct_rate = None
+
+        self.increasing_weight = False
+        self.nondecreasing_weight = False
+        self.same = True
 
     def train(self, X: np.ndarray, y: np.array):
         # Train the target surrogate and update the weight w.
@@ -125,30 +131,70 @@ class NORM(BaseFacade):
             else:
                 self.w[:-1] = np.array(self.w[:-1]) / np.sum(self.w[:-1])
 
+        if self.nondecreasing_weight:
+            old_weights = np.array(self.sw.copy())
+            new_weights = np.array(self.w.copy())
+            old_last_weight = old_weights[-1]
+            new_last_weight = new_weights[-1]
+            if new_last_weight < old_last_weight:
+                old_remain_weight = 1.0 - old_last_weight
+                new_remain_weight = 1.0 - new_last_weight
+                if new_remain_weight <= 1e-8:
+                    adjusted_new_weights = np.array([0.] * self.K + [1.], dtype=np.float64)
+                else:
+                    adjusted_new_weights = np.append(new_weights[:-1] / new_remain_weight * old_remain_weight,
+                                                     old_last_weight)
+                self.sw = adjusted_new_weights.copy()
+            else:
+                self.sw = new_weights.copy()
+        elif self.increasing_weight and instance_num > 10:
+            # Increasing target
+            new_weights = np.array(self.w.copy())
+            s = 10
+            k = 0.04  # Speed
+            a = 0.5
+            new_last_weight = a / (a + np.e ** (-(instance_num - s) * k))
+            new_remain_weight = 1.0 - new_last_weight
+            remain_weight = 1.0 - new_weights[-1]
+            if remain_weight <= 1e-8:
+                adjusted_new_weights = np.array([0.] * self.K + [1.], dtype=np.float64)
+            else:
+                adjusted_new_weights = np.append(new_weights[:-1] / remain_weight * new_remain_weight,
+                                                 new_last_weight)
+            self.sw = adjusted_new_weights
+        else:
+            self.sw = self.w.copy()
+
+        if self.same:
+            self.w = self.sw.copy()
+
         print('=' * 20)
         w = self.w.copy()
-        for id in range(self.K):
-            if self.ignored_flag[id]:
-                w[id] = 0.
-        weight_str = ','.join([('%.2f' % item) for item in w])
+        # for id in range(self.K):
+        #     if self.ignored_flag[id]:
+        #         w[id] = 0.
+
+        space_weight_str = ','.join([('%.2f' % item) for item in w])
+        surrogate_weight_str = ','.join([('%.2f' % item) for item in self.sw])
         print('In iter-%d' % self.iteration_id)
         self.target_weight.append(w[-1])
-        print(weight_str)
+        print('Space weight:' + space_weight_str)
+        print('Surrogate weight:' + surrogate_weight_str)
         self.hist_ws.append(w)
         self.iteration_id += 1
 
     def predict(self, X: np.array):
         mu, var = self.target_surrogate.predict(X)
         # Target surrogate predictions with weight.
-        mu *= self.w[-1]
-        var *= (self.w[-1] * self.w[-1])
+        mu *= self.sw[-1]
+        var *= (self.sw[-1] * self.sw[-1])
 
         # Base surrogate predictions with corresponding weights.
         for i in range(0, self.K):
             if not self.ignored_flag[i]:
                 mu_t, var_t = self.source_surrogates[i].predict(X)
-                mu += self.w[i] * mu_t
-                var += self.w[i] * self.w[i] * var_t
+                mu += self.sw[i] * mu_t
+                var += self.sw[i] * self.sw[i] * var_t
         return mu, var
 
     def get_weights(self):
