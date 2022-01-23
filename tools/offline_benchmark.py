@@ -32,6 +32,8 @@ from tlbo.facade.topo_variant2 import TOPO
 from tlbo.facade.topo_variant3 import TOPO_V3
 from tlbo.facade.topo import TransBO_RGPE
 from tlbo.facade.mfes import MFES
+from tlbo.facade.rgpe_space import RGPESPACE
+from tlbo.facade.tst_space import TSTSPACE
 from tlbo.facade.norm import NORM
 from tlbo.facade.norm_minus import NORMMinus
 from tlbo.facade.norm_tst import NORMTST
@@ -250,6 +252,10 @@ if __name__ == "__main__":
                     surrogate_class = TOPO_V3
                 elif mth == 'ultra':
                     surrogate_class = RGPE
+                elif mth.startswith('rgpe-space'):
+                    surrogate_class = RGPESPACE
+                elif mth.startswith('tst-space'):
+                    surrogate_class = TSTSPACE
                 elif 'tst' in mth:
                     surrogate_class = NORMTST
                 elif mth.endswith('-'):
@@ -280,6 +286,12 @@ if __name__ == "__main__":
                     smbo_framework = SMBO_SEARCH_SPACE_TRANSFER
                 if mth in ["space", 'space-', 'space-tst']:
                     smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='best')
+                elif 'all+-sample' in mth:
+                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='all+-sample')
+                elif 'all+-threshold' in mth:
+                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='all+-threshold')
+                elif 'all+' in mth:
+                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='all+')
                 elif 'all' in mth:
                     smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='all')
                 elif 'sample-new' in mth:
@@ -302,8 +314,8 @@ if __name__ == "__main__":
                                       initial_runs=init_num,
                                       acq_func='ei')
 
-                smbo.p_min = 20
-                smbo.p_max = 60
+                smbo.p_min = 5
+                smbo.p_max = 50
                 if 'v2' in mth:
                     smbo.use_correct_rate = True
 

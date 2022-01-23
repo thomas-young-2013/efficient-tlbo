@@ -89,14 +89,16 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         self.y_max, self.y_min = np.max(self.ys), np.min(self.ys)
 
         self.reduce_cnt = 0
-        self.p_min = 10
-        self.p_max = 60
+        self.p_min = 5
+        self.p_max = 50
         self.use_correct_rate = False
 
         if self.mode in ['box', 'ellipsoid']:
             continuous_types = (UniformFloatHyperparameter, UniformIntegerHyperparameter)
             self.continuous_mask = [isinstance(hp, continuous_types) for hp in self.config_space.get_hyperparameters()]
             self.calculate_box_area()
+
+        self.space_threshold = 0.04
 
     def get_adtm(self):
         y_inc = self.get_inc_y()
@@ -316,7 +318,7 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
             weights = weights[:-1]
             task_indexes = np.argsort(weights)[-1:]  # space
             task_indexes = [idx_ for idx_ in task_indexes if weights[idx_] > 0.]
-        elif self.mode == 'all':
+        elif self.mode in ['all', 'all+-sample', 'all+', 'all+-threshold']:
             weights = weights[:-1]
             task_indexes = np.argsort(weights)  # space-all
             task_indexes = [idx_ for idx_ in task_indexes if weights[idx_] > 0.]
@@ -359,7 +361,50 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
 
         X_candidate = list()
 
-        if len(y_pred) > 0:
+        if self.mode in ['all+', 'all+-sample', 'all+-threshold'] and len(y_pred) > 0:
+            if self.mode == 'all+-sample' and np.random.random_sample() < self.model.w[-1]:
+                print('Use the target space!')
+                if len(self.configurations) <= 20:
+                    X_candidate = self.configuration_list
+                else:
+                    X_candidate = self.choose_config_target_space()
+            else:
+                print('Use space transfer!')
+                pred_mat = np.array(y_pred)
+                while True:
+                    # Count the #intersection.
+                    _cnt = 0
+                    config_indexes = list()
+                    for _col in range(pred_mat.shape[1]):
+                        if (pred_mat[:, _col] == 1).all():
+                            _cnt += 1
+                            config_indexes.append(_col)
+                    print('The intersection of candidate space is %d.' % _cnt)
+
+                    if self.mode == 'all+-threshold':
+                        if _cnt < self.space_threshold * len(self.target_hpo_measurements) and len(pred_mat) > 1:
+                            print('Threhold not meet!')
+                            pred_mat = pred_mat[1:]
+                            continue
+                    elif _cnt == 0 and len(pred_mat) > 1:
+                        print('Delete the least related task!')
+                        pred_mat = pred_mat[1:]
+                        continue
+
+                    for _idx in config_indexes:
+                        X_candidate.append(self.configuration_list[_idx])
+                    print('The candidate space size is %d.' % len(X_candidate))
+
+                    if len(X_candidate) == 0:
+                        print('[Warning] Intersect=0, please check!')
+                        # Deal with the space with no candidates.
+                        if len(self.configurations) <= 20:
+                            X_candidate = self.configuration_list
+                        else:
+                            print('[Warning] len(y_pred)=0. choose_config_target_space, please check!')
+                            X_candidate = self.choose_config_target_space()
+                    break
+        elif len(y_pred) > 0:
             # Count the #intersection.
             pred_mat = np.array(y_pred)
             # print(pred_mat.shape)
