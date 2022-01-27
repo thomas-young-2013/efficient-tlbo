@@ -1,5 +1,6 @@
 import time
 import numpy as np
+import cvxpy as cp
 from typing import List, Dict
 from sklearn.svm import SVC
 from sklearn.pipeline import make_pipeline
@@ -558,9 +559,20 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         X_incumbents = convert_configurations_to_array(incumbent_src_configs)
         # exclude categorical params
         X_incumbents_ = X_incumbents[:, self.continuous_mask]
+        print(X_incumbents_)
 
         if self.mode == 'ellipsoid':
-            raise NotImplementedError
+            lenth = X_incumbents_.shape[1]
+            self.lenth = lenth
+            A = cp.Variable((lenth,lenth),PSD=True)
+            b = cp.Variable(lenth)
+            objective = cp.Minimize(-cp.log_det(A))
+            constraint = [cp.norm(A @ X_incumbents_[i] + b) <= 1 for i in range(X_incumbents_.shape[0])]
+            prob = cp.Problem(objective, constraint)
+            prob.solve(qcp=True)
+            self.src_A = A.value
+            self.src_b = b.value
+            print('A',self.src_A,'b',self.src_b)
         elif self.mode == 'box':
             self.src_X_min_ = np.min(X_incumbents_, axis=0)
             self.src_X_max_ = np.max(X_incumbents_, axis=0)
@@ -576,7 +588,30 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         X_ALL_ = X_ALL[:, self.continuous_mask]
 
         if self.mode == 'ellipsoid':
-            raise NotImplementedError
+            valid_idx = []
+            for i in range(len(X_ALL_)):
+                if np.linalg.norm(self.src_A@X_ALL_[i] + self.src_b) <= 1:
+                    valid_idx.append(i)
+            if len(valid_idx) == 0:
+                print('[Warning] no candidates in ellipsoid area!')
+                X_candidate = self.configuration_list
+            else:
+                X_candidate = [self.configuration_list[i] for i in valid_idx]
+
+            assert len(X_candidate) > 0
+            return X_candidate
+            # X_candidate = []
+            # IS_FEASIBLE = False
+            # X_ellip = []
+            # while not IS_FEASIBLE:
+            #     z = np.random.randn(self.lenth)
+            #     r = np.random.rand()
+            #     t = r**(1/self.lenth)/np.linalg.norm(z)*z
+            #     X = np.linalg.inv(self.src_A)@(t-self.src_b)
+            #     if X in X_ALL_:
+            #         IS_FEASIBLE = True
+            #         X_candidate.append(X)
+            # X_ellip.append(X)
         elif self.mode == 'box':
             valid_mask = np.logical_and(self.src_X_min_ <= X_ALL_, X_ALL_ <= self.src_X_max_).all(axis=1)
             valid_idx = np.where(valid_mask)[0].tolist()
@@ -590,3 +625,4 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
             return X_candidate
         else:
             raise ValueError(self.mode)
+

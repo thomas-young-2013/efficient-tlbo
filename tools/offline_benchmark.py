@@ -264,6 +264,8 @@ if __name__ == "__main__":
                     surrogate_class = NORM
                 elif mth in ['box', 'ellipsoid']:
                     surrogate_class = NoTL
+                elif mth in ['rgpe-box', 'rgpe-ellipsoid']:
+                    surrogate_class = RGPE
                 else:
                     raise ValueError('Invalid baseline name - %s.' % mth)
                 if mth not in ['mklgp', 'scot', 'tstm']:
@@ -301,6 +303,10 @@ if __name__ == "__main__":
                 elif mth == 'box':
                     smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='box')
                 elif mth == 'ellipsoid':
+                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='ellipsoid')
+                elif mth == 'rgpe-box':
+                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='box')
+                elif mth == 'rgpe-ellipsoid':
                     smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='ellipsoid')
                 else:
                     smbo_framework = SMBO_OFFLINE
