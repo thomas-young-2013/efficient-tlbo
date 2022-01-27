@@ -16,3 +16,5 @@ pyrfr==0.8.0
 emcee
 lazy_import
 scikit-optimize
+
+cvxpy
