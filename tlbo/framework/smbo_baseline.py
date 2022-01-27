@@ -3,6 +3,9 @@ import numpy as np
 import cvxpy as cp
 from typing import List, Dict
 from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.gaussian_process import GaussianProcessClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from ConfigSpace import UniformFloatHyperparameter, UniformIntegerHyperparameter
@@ -28,6 +31,7 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
                  surrogate_model: BaseFacade,
                  acq_func: str = 'ei',
                  mode='best',
+                 model='gp',
                  source_hpo_data=None,
                  enable_init_design=False,
                  num_src_hpo_trial=50,
@@ -49,6 +53,8 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         self.surrogate_type = surrogate_type
         self.acq_func = acq_func
         self.mode = mode
+        self.clf_type = model
+        print(mode, model)
 
         self.max_iterations = max_runs
         self.iteration_id = 0
@@ -323,6 +329,10 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
             weights = weights[:-1]
             task_indexes = np.argsort(weights)  # space-all
             task_indexes = [idx_ for idx_ in task_indexes if weights[idx_] > 0.]
+        elif self.mode in ['all+-sample+']:
+            weights_ = weights[:-1]
+            weights_ = [x / sum(weights_) for x in weights_]  # space-sample-new
+            task_indexes = np.random.choice(list(range(len(weights_))), 2, p=weights_, replace=False)
         elif self.mode == 'sample':
             # Target excluded
             weights = weights[:-1]
@@ -483,7 +493,14 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
                 else:
                     print('Warning: Label treatment triggers!')
 
-            clf = make_pipeline(StandardScaler(), SVC(gamma='auto'))
+            if self.clf_type == 'svm':
+                clf = make_pipeline(StandardScaler(), SVC(gamma='auto'))
+            elif self.clf_type == 'rf':
+                clf = make_pipeline(StandardScaler(), RandomForestClassifier(n_estimators=50, max_depth=4))
+            elif self.clf_type == 'knn':
+                clf = make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=5))
+            elif self.clf_type == 'gp':
+                clf = make_pipeline(StandardScaler(), GaussianProcessClassifier())
             # print('Labels', space_label)
             # print('sum', np.sum(space_label))
             clf.fit(X, space_label)

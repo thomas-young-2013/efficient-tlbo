@@ -286,28 +286,40 @@ if __name__ == "__main__":
 
                 if mth == "ultra":
                     smbo_framework = SMBO_SEARCH_SPACE_TRANSFER
-                if mth in ["space", 'space-', 'space-tst']:
-                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='best')
+
+                if 'rf' in mth:
+                    model = 'rf'
+                elif 'knn' in mth:
+                    model = 'knn'
+                elif 'gp' in mth:
+                    model = 'gp'
+                else:
+                    model = 'svm'
+
+                if 'all+-sample+' in mth:
+                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='all+-sample+', model=model)
                 elif 'all+-sample' in mth:
-                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='all+-sample')
+                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='all+-sample', model=model)
                 elif 'all+-threshold' in mth:
-                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='all+-threshold')
+                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='all+-threshold', model=model)
                 elif 'all+' in mth:
-                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='all+')
+                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='all+', model=model)
                 elif 'all' in mth:
-                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='all')
+                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='all', model=model)
                 elif 'sample-new' in mth:
-                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='sample-new')
+                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='sample-new', model=model)
                 elif 'sample' in mth:
-                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='sample')
+                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='sample', model=model)
+                elif 'space' in mth:
+                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='best', model=model)
                 elif mth == 'box':
-                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='box')
+                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='box', model=model)
                 elif mth == 'ellipsoid':
-                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='ellipsoid')
+                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='ellipsoid', model=model)
                 elif mth == 'rgpe-box':
-                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='box')
+                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='box', model=model)
                 elif mth == 'rgpe-ellipsoid':
-                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='ellipsoid')
+                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='ellipsoid', model=model)
                 else:
                     smbo_framework = SMBO_OFFLINE
 
