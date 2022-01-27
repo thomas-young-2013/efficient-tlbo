@@ -1,6 +1,6 @@
 import time
 import numpy as np
-import cvxpy as cp
+
 from typing import List, Dict
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
@@ -579,6 +579,7 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         print(X_incumbents_)
 
         if self.mode == 'ellipsoid':
+            import cvxpy as cp
             lenth = X_incumbents_.shape[1]
             self.lenth = lenth
             A = cp.Variable((lenth,lenth),PSD=True)
