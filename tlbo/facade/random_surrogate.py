@@ -8,6 +8,7 @@ class RandomSearch(BaseFacade):
         super().__init__(config_space, source_hpo_data, seed, target_hp_configs,
                          surrogate_type=surrogate_type, num_src_hpo_trial=num_src_hpo_trial)
         self.method_id = 'rs'
+        self.rng = np.random.RandomState(seed)
 
     def train(self, X: np.ndarray, y: np.array):
         pass
@@ -15,4 +16,4 @@ class RandomSearch(BaseFacade):
     def predict(self, X: np.array):
         # Imitate the random search.
         n = X.shape[0]
-        return np.random.rand(n).reshape(-1, 1), np.array([1e-5]*n).reshape(-1, 1)
+        return self.rng.rand(n).reshape(-1, 1), np.array([1e-5]*n).reshape(-1, 1)
