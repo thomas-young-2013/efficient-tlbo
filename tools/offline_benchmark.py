@@ -63,6 +63,10 @@ parser.add_argument('--num_random_data', type=int, default=20000)
 parser.add_argument('--save_weight', type=str, default='false')
 parser.add_argument('--rep', type=int, default=1)
 parser.add_argument('--start_id', type=int, default=0)
+
+default_pmin, default_pmax = 5, 50
+parser.add_argument('--pmin', type=int, default=default_pmin)
+parser.add_argument('--pmax', type=int, default=default_pmax)
 args = parser.parse_args()
 
 algo_id = args.algo_id
@@ -82,6 +86,9 @@ save_weight = args.save_weight
 baselines = args.methods.split(',')
 rep = args.rep
 start_id = args.start_id
+
+pmin = args.pmin
+pmax = args.pmax
 
 data_dir = 'data/hpo_data/'
 assert test_mode in ['bo', 'random']
@@ -185,7 +192,7 @@ if __name__ == "__main__":
     #     raise ValueError('The random test data is empty!')
 
     # Exp folder to save results.
-    exp_dir = 'data/exp_results/%s_%s_%d_%d/' % (exp_id, test_mode, num_source_problem, num_random_data)
+    exp_dir = 'data/exp_results/%s_%s_%s_%d_%d/' % (exp_id, test_mode, task_set, num_source_problem, num_random_data)
     if not os.path.exists(exp_dir):
         os.makedirs(exp_dir)
 
@@ -332,8 +339,10 @@ if __name__ == "__main__":
                                       initial_runs=init_num,
                                       acq_func='ei')
 
-                smbo.p_min = 5
-                smbo.p_max = 50
+                if hasattr(smbo, 'p_min'):
+                    smbo.p_min = pmin
+                    smbo.p_max = pmax
+                    print('use pmin/max:', smbo.p_min, smbo.p_max)
                 if 'v2' in mth:
                     smbo.use_correct_rate = True
 
@@ -371,8 +380,12 @@ if __name__ == "__main__":
 
                 # Save the running results on the fly with overwriting.
                 if run_num == len(hpo_ids):
-                    mth_file = '%s_%s_%d_%d_%s_%s_%d.pkl' % (
-                        mth, algo_id, n_src_data, trial_num, surrogate_type, task_id, seed)
+                    if pmin != default_pmin or pmax != default_pmax:
+                        mth_file = '%s_%d_%d_%s_%d_%d_%s_%s_%d.pkl' % (
+                            mth, pmin, pmax, algo_id, n_src_data, trial_num, surrogate_type, task_id, seed)
+                    else:
+                        mth_file = '%s_%s_%d_%d_%s_%s_%d.pkl' % (
+                            mth, algo_id, n_src_data, trial_num, surrogate_type, task_id, seed)
                     with open(exp_dir + mth_file, 'wb') as f:
                         data = [np.array(exp_results), np.mean(exp_results, axis=0)]
                         pickle.dump(data, f)

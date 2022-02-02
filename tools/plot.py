@@ -58,7 +58,7 @@ if exp_id == 'exp1':
         data_dir = 'data/exp_results/main_random_3_20000/'
     else:
         data_dir = 'data/exp_results/main_random_4_20000/'
-    run_trials = 50
+    # run_trials = 50
 elif exp_id == 'exp2':
     data_dir = 'data/exp_results/main_random_5_20000/'
     run_trials = 75
@@ -70,6 +70,8 @@ elif exp_id == 'exp4':
     data_dir = 'data/exp_results/combination/'
 elif exp_id == 'exp5':
     data_dir = 'data/exp_results/warm_random_29_20000'
+elif exp_id == 'exptest':
+    data_dir = 'data/exp_results/main_random_class1_5_50000'
 else:
     raise ValueError('Invalid exp id - %s.' % exp_id)
 
@@ -103,7 +105,7 @@ def fetch_color_marker(m_list):
                 fill_values(name, 2)
             else:
                 raise ValueError('Unexpected method - %s.' % name)
-        elif exp_id in ['exp1', 'exp2', 'exp5', 'exp3']:
+        elif exp_id in ['exp1', 'exp2', 'exp5', 'exp3', 'exptest']:
             if name == 'space':
                 fill_values(name, 1)
             elif name == 'notl':
@@ -263,5 +265,5 @@ if __name__ == "__main__":
         # ax.set_ylim(1, len(methods))
         plt.subplots_adjust(top=0.93, right=0.968, left=0.11, bottom=0.13)
     plt.title('[%s-%s]' % (args.algo_id.replace('_', '\\_'), surrogate_type))
-    plt.savefig(data_dir + '%s_%s_%d_%s_result.pdf' % (exp_id, benchmark_id, run_trials, metric))
+    plt.savefig(os.path.join(data_dir, '%s_%s_%d_%s_result.pdf' % (exp_id, benchmark_id, run_trials, metric)))
     plt.show()

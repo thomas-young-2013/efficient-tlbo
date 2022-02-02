@@ -66,6 +66,7 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         self.configurations = list()
         self.failed_configurations = list()
         self.perfs = list()
+        self.test_perfs = list()
         self.reduce_cnt = 0
 
         if enable_init_design:
@@ -151,8 +152,13 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         return initial_configs
 
     def evaluate(self, config):
-        perf = self.target_hpo_measurements[config]
-        return perf
+        value = self.target_hpo_measurements[config]
+        try:
+            perf, test_perf = value
+        except Exception:
+            perf = value
+            test_perf = -1
+        return perf, test_perf
 
     def iterate(self):
         if len(self.configurations) == 0:
@@ -169,7 +175,7 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
 
         if config not in (self.configurations + self.failed_configurations):
             # Evaluate this configuration.
-            perf = self.evaluate(config)
+            perf, test_perf = self.evaluate(config)
             if perf == MAXINT:
                 trial_info = 'failed configuration evaluation.'
                 trial_state = FAILDED
@@ -181,6 +187,7 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
 
                 self.configurations.append(config)
                 self.perfs.append(perf)
+                self.test_perfs.append(test_perf)
                 self.history_container.add(config, perf)
             else:
                 self.failed_configurations.append(config)
@@ -234,6 +241,8 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         if _config_num < self.init_num:
             if self.initial_configurations is None:
                 default_config = self.config_space.get_default_configuration()
+                if default_config not in self.configuration_list:
+                    default_config = self.configuration_list[0]
                 if default_config not in (self.configurations + self.failed_configurations):
                     config = default_config
                 else:
@@ -520,16 +529,23 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         return
 
     def check_space(self, X_candidate):
-        print('Global Optimum:' + str(min(self.target_hpo_measurements.values())))
+        all_perfs = np.array(list(self.target_hpo_measurements.values()))
+        if all_perfs.ndim == 2:
+            all_perfs = all_perfs[:, 0]
+        print('Global Optimum:' + str(np.min(all_perfs)))
         best_perf_in_candidate = 1
         best_config = None
         for config in X_candidate:
-            perf = self.target_hpo_measurements[config]
+            value = self.target_hpo_measurements[config]
+            try:
+                perf, _ = value
+            except Exception:
+                perf = value
             if perf < best_perf_in_candidate:
                 best_perf_in_candidate = perf
                 best_config = config
         print('Current Optimum:' + str(best_perf_in_candidate))
-        print('Optimum in space:' + str(bool(min(self.target_hpo_measurements.values()) == best_perf_in_candidate)))
+        print('Optimum in space:' + str(bool(np.min(all_perfs) == best_perf_in_candidate)))
         print("Reduced: %.2f/%.2f, Rate: %.2f" % (
             len(X_candidate), len(self.target_hpo_measurements), len(X_candidate) / len(self.target_hpo_measurements)))
         if len(X_candidate) != len(self.target_hpo_measurements):

@@ -56,6 +56,7 @@ class SMBO_SEARCH_SPACE_TRANSFER(BasePipeline):
         self.configurations = list()
         self.failed_configurations = list()
         self.perfs = list()
+        self.test_perfs = list()
 
         if enable_init_design:
             self.initial_configurations = self.initial_design(initial_runs)
@@ -128,8 +129,13 @@ class SMBO_SEARCH_SPACE_TRANSFER(BasePipeline):
         return initial_configs
 
     def evaluate(self, config):
-        perf = self.target_hpo_measurements[config]
-        return perf
+        value = self.target_hpo_measurements[config]
+        try:
+            perf, test_perf = value
+        except Exception:
+            perf = value
+            test_perf = -1
+        return perf, test_perf
 
     def iterate(self):
         if len(self.configurations) == 0:
@@ -146,7 +152,7 @@ class SMBO_SEARCH_SPACE_TRANSFER(BasePipeline):
 
         if config not in (self.configurations + self.failed_configurations):
             # Evaluate this configuration.
-            perf = self.evaluate(config)
+            perf, test_perf = self.evaluate(config)
             if perf == MAXINT:
                 trial_info = 'failed configuration evaluation.'
                 trial_state = FAILDED
@@ -158,6 +164,7 @@ class SMBO_SEARCH_SPACE_TRANSFER(BasePipeline):
 
                 self.configurations.append(config)
                 self.perfs.append(perf)
+                self.test_perfs.append(test_perf)
                 self.history_container.add(config, perf)
             else:
                 self.failed_configurations.append(config)
@@ -211,6 +218,8 @@ class SMBO_SEARCH_SPACE_TRANSFER(BasePipeline):
         if _config_num < self.init_num:
             if self.initial_configurations is None:
                 default_config = self.config_space.get_default_configuration()
+                if default_config not in self.configuration_list:
+                    default_config = self.configuration_list[0]
                 if default_config not in (self.configurations + self.failed_configurations):
                     config = default_config
                 else:
