@@ -54,12 +54,13 @@ parser.add_argument('--surrogate_type', type=str, default='gp')
 parser.add_argument('--test_mode', type=str, default='random')
 parser.add_argument('--trial_num', type=int, default=50)
 parser.add_argument('--init_num', type=int, default=0)
-parser.add_argument('--run_num', type=int, default=-1)
+# parser.add_argument('--run_num', type=int, default=-1)
 parser.add_argument('--num_source_data', type=int, default=50)
 parser.add_argument('--num_source_problem', type=int, default=-1)
 parser.add_argument('--task_set', type=str, default='class1', choices=['class1', 'class2', 'full'])
-parser.add_argument('--num_target_data', type=int, default=10000)
-parser.add_argument('--num_random_data', type=int, default=20000)
+parser.add_argument('--target_set', type=str, default='full')
+parser.add_argument('--num_target_data', type=int, default=50000)
+parser.add_argument('--num_random_data', type=int, default=50000)
 parser.add_argument('--save_weight', type=str, default='false')
 parser.add_argument('--rep', type=int, default=1)
 parser.add_argument('--start_id', type=int, default=0)
@@ -73,6 +74,7 @@ algo_id = args.algo_id
 exp_id = args.exp_id
 task_id = args.task_id
 task_set = args.task_set
+targets = args.target_set.split(',')
 surrogate_type = args.surrogate_type
 n_src_data = args.num_source_data
 num_source_problem = args.num_source_problem
@@ -80,7 +82,7 @@ n_target_data = args.num_target_data
 num_random_data = args.num_random_data
 trial_num = args.trial_num
 init_num = args.init_num
-run_num = args.run_num
+# run_num = args.run_num
 test_mode = args.test_mode
 save_weight = args.save_weight
 baselines = args.methods.split(',')
@@ -90,7 +92,7 @@ start_id = args.start_id
 pmin = args.pmin
 pmax = args.pmax
 
-data_dir = 'data/hpo_data/'
+data_dir = 'data/full_hpo_data/'
 assert test_mode in ['bo', 'random']
 if init_num > 0:
     enable_init_design = True
@@ -101,7 +103,7 @@ else:
 
 algorithms = ['lightgbm', 'random_forest', 'linear', 'adaboost', 'lda', 'extra_trees']
 algo_str = '|'.join(algorithms)
-pattern = '(.*)-(%s)-(\d+).pkl' % algo_str
+pattern = '(.*)-(%s)-random-(\d+).pkl' % algo_str
 
 
 def load_hpo_history():
@@ -128,7 +130,11 @@ def load_hpo_history():
                 if not os.path.exists(_file):
                     continue
             source_hpo_ids.append(dataset_id)
-            source_hpo_data.append(data)
+
+            # TODO: Add test perf
+            _data = {key_config: data[key_config][0] for key_config in data}
+            source_hpo_data.append(_data)
+
     assert len(source_hpo_ids) == len(source_hpo_data)
     print('Load %s source hpo problems for algorithm %s.' % (len(source_hpo_ids), algo_id))
 
@@ -186,24 +192,29 @@ if __name__ == "__main__":
     hpo_ids, hpo_data, random_test_data, meta_features = extract_data(task_set)
     algo_name = 'liblinear_svc' if algo_id == 'linear' else algo_id
     config_space = get_configspace_instance(algo_id=algo_name)
-    run_num = len(hpo_ids) if run_num == -1 else run_num
     num_source_problem = (len(hpo_ids) - 1) if num_source_problem == -1 else num_source_problem
     # if 'rs' in baselines and len(random_test_data) == 0:
     #     raise ValueError('The random test data is empty!')
+
+    run_id = list()
+    for target_id in targets:
+        target_idx = hpo_ids.index(target_id)
+        run_id.append(target_idx)
 
     # Exp folder to save results.
     exp_dir = 'data/exp_results/%s_%s_%s_%d_%d/' % (exp_id, test_mode, task_set, num_source_problem, num_random_data)
     if not os.path.exists(exp_dir):
         os.makedirs(exp_dir)
 
-    pbar = tqdm(total=rep * len(baselines) * run_num * trial_num)
-    for rep_id in range(start_id, start_id + rep):
+    pbar = tqdm(total=rep * len(baselines) * len(run_id) * trial_num)
+    for id in run_id:
         for mth in baselines:
-            seed = seeds[rep_id]
-            print('=== start rep', rep_id, 'seed', seed)
-            exp_results = list()
-            target_weights = list()
-            for id in range(run_num):
+            for rep_id in range(start_id, start_id + rep):
+                seed = seeds[rep_id]
+                # exp_results = list()
+                # target_weights = list()
+                print('=== start rep', rep_id, 'seed', seed)
+
                 print('=' * 20)
                 print('[%s-%s] Evaluate %d-th problem - %s[%d].' % (algo_id, mth, id + 1, hpo_ids[id], rep_id))
                 pbar.set_description('[%s-%s] %d-th - %s[%d]' % (algo_id, mth, id + 1, hpo_ids[id], rep_id))
@@ -362,7 +373,7 @@ if __name__ == "__main__":
                         adtm, y_inc = smbo.get_adtm(), smbo.get_inc_y()
                         result.append([adtm, y_inc, time_taken])
                     pbar.update(1)
-                exp_results.append(result)
+                # exp_results.append(result)
                 print('In %d-th problem: %s' % (id, hpo_ids[id]), 'adtm, y_inc', result[-1])
                 print('min/max', smbo.y_min, smbo.y_max)
                 print('mean,std', np.mean(smbo.ys), np.std(smbo.ys))
@@ -376,24 +387,41 @@ if __name__ == "__main__":
                     source_ids = [item[0] for item in enumerate(list(np.mean(weights, axis=0))) if item[1] >= 1e-2]
                     print('Source problems used', source_ids)
 
-                target_weights.append(surrogate.target_weight)
+                # target_weights.append(surrogate.target_weight)
 
                 # Save the running results on the fly with overwriting.
-                if run_num == len(hpo_ids):
-                    if pmin != default_pmin or pmax != default_pmax:
-                        mth_file = '%s_%d_%d_%s_%d_%d_%s_%s_%d.pkl' % (
-                            mth, pmin, pmax, algo_id, n_src_data, trial_num, surrogate_type, task_id, seed)
-                    else:
-                        mth_file = '%s_%s_%d_%d_%s_%s_%d.pkl' % (
-                            mth, algo_id, n_src_data, trial_num, surrogate_type, task_id, seed)
-                    with open(exp_dir + mth_file, 'wb') as f:
-                        data = [np.array(exp_results), np.mean(exp_results, axis=0)]
-                        pickle.dump(data, f)
+                # if run_num == len(hpo_ids):
+                #     if pmin != default_pmin or pmax != default_pmax:
+                #         mth_file = '%s_%d_%d_%s_%d_%d_%s_%s_%d.pkl' % (
+                #             mth, pmin, pmax, algo_id, n_src_data, trial_num, surrogate_type, task_id, seed)
+                #     else:
+                #         mth_file = '%s_%s_%d_%d_%s_%s_%d.pkl' % (
+                #             mth, algo_id, n_src_data, trial_num, surrogate_type, task_id, seed)
+                #     with open(exp_dir + mth_file, 'wb') as f:
+                #         data = [np.array(exp_results), np.mean(exp_results, axis=0)]
+                #         pickle.dump(data, f)
+                #
+                #     if save_weight == 'true':
+                #         mth_file = 'w_%s_%s_%d_%d_%s_%s_%d.pkl' % (
+                #             mth, algo_id, n_src_data, trial_num, surrogate_type, task_id, seed)
+                #         with open(exp_dir + mth_file, 'wb') as f:
+                #             data = target_weights
+                #             pickle.dump(data, f)
 
-                    if save_weight == 'true':
-                        mth_file = 'w_%s_%s_%d_%d_%s_%s_%d.pkl' % (
-                            mth, algo_id, n_src_data, trial_num, surrogate_type, task_id, seed)
-                        with open(exp_dir + mth_file, 'wb') as f:
-                            data = target_weights
-                            pickle.dump(data, f)
+                if pmin != default_pmin or pmax != default_pmax:
+                    mth_file = '%s_%s_%d_%d_%s_%d_%d_%s_%s_%d.pkl' % (
+                        mth, hpo_ids[id], pmin, pmax, algo_id, n_src_data, trial_num, surrogate_type, task_id, seed)
+                else:
+                    mth_file = '%s_%s_%s_%d_%d_%s_%s_%d.pkl' % (
+                        mth, hpo_ids[id], algo_id, n_src_data, trial_num, surrogate_type, task_id, seed)
+                with open(exp_dir + mth_file, 'wb') as f:
+                    data = np.array(result)
+                    pickle.dump(data, f)
+
+                if save_weight == 'true':
+                    mth_file = 'w_%s_%s_%s_%d_%d_%s_%s_%d.pkl' % (
+                        mth, hpo_ids[id], algo_id, n_src_data, trial_num, surrogate_type, task_id, seed)
+                    with open(exp_dir + mth_file, 'wb') as f:
+                        data = surrogate.target_weight
+                        pickle.dump(data, f)
     pbar.close()
