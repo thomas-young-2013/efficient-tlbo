@@ -55,11 +55,11 @@ parser.add_argument('--test_mode', type=str, default='random')
 parser.add_argument('--trial_num', type=int, default=50)
 parser.add_argument('--init_num', type=int, default=0)
 # parser.add_argument('--run_num', type=int, default=-1)
-parser.add_argument('--num_source_data', type=int, default=50)
+parser.add_argument('--num_source_trial', type=int, default=50)
 parser.add_argument('--num_source_problem', type=int, default=-1)
 parser.add_argument('--task_set', type=str, default='class1', choices=['class1', 'class2', 'full'])
-parser.add_argument('--target_set', type=str, default='full')
-parser.add_argument('--num_target_data', type=int, default=50000)
+parser.add_argument('--target_set', type=str, default='class1')
+parser.add_argument('--num_source_data', type=int, default=10000)
 parser.add_argument('--num_random_data', type=int, default=50000)
 parser.add_argument('--save_weight', type=str, default='false')
 parser.add_argument('--rep', type=int, default=1)
@@ -74,11 +74,11 @@ algo_id = args.algo_id
 exp_id = args.exp_id
 task_id = args.task_id
 task_set = args.task_set
-targets = args.target_set.split(',')
+targets = args.target_set
 surrogate_type = args.surrogate_type
-n_src_data = args.num_source_data
+n_src_trial = args.num_source_trial
 num_source_problem = args.num_source_problem
-n_target_data = args.num_target_data
+n_source_data = args.num_source_data
 num_random_data = args.num_random_data
 trial_num = args.trial_num
 init_num = args.init_num
@@ -92,7 +92,7 @@ start_id = args.start_id
 pmin = args.pmin
 pmax = args.pmax
 
-data_dir = 'data/full_hpo_data/'
+data_dir = 'data/hpo_data/'
 assert test_mode in ['bo', 'random']
 if init_num > 0:
     enable_init_design = True
@@ -103,7 +103,25 @@ else:
 
 algorithms = ['lightgbm', 'random_forest', 'linear', 'adaboost', 'lda', 'extra_trees']
 algo_str = '|'.join(algorithms)
-pattern = '(.*)-(%s)-random-(\d+).pkl' % algo_str
+src_pattern = '(.*)-(%s)-(\d+).pkl' % algo_str
+
+
+def get_data_set(set_name):
+    assert set_name in ['class1', 'class2', 'full']
+    if set_name == 'class1':
+        data_set = ['kc1', 'pollen', 'madelon', 'winequality_white', 'sick']
+    elif set_name == 'class2':
+        data_set = ['kc1', 'pollen', 'madelon', 'winequality_white', 'sick',
+                    'quake', 'hypothyroid(1)', 'musk', 'page-blocks(1)', 'page-blocks(2)',
+                    'satimage', 'segment', 'waveform-5000(2)']
+    else:
+        data_set = ['kc1', 'pollen', 'madelon', 'winequality_white', 'sick',
+                    'quake', 'hypothyroid(1)', 'musk', 'page-blocks(1)', 'page-blocks(2)',
+                    'satimage', 'segment', 'waveform-5000(2)',
+                    'space_ga', 'splice', 'kr-vs-kp', 'hypothyroid(2)', 'spambase', 'analcatdata_supreme', 'balloon',
+                    'cpu_act', 'cpu_small', 'bank32nh', 'puma8NH', 'wind', 'mushroom', 'waveform-5000(1)',
+                    'delta_ailerons', 'abalone', 'optdigits']
+    return data_set
 
 
 def load_hpo_history():
@@ -111,13 +129,13 @@ def load_hpo_history():
     random_hpo_data = list()
     for _file in tqdm(sorted(os.listdir(data_dir))):
         if _file.endswith('.pkl') and _file.find(algo_id) != -1:
-            result = re.search(pattern, _file, re.I)
+            result = re.search(src_pattern, _file, re.I)
             if result is None:
                 continue
             dataset_id, algo_name, total_trial_num = result.group(1), result.group(2), result.group(3)
-            if int(total_trial_num) != n_target_data:
+            if int(total_trial_num) != n_source_data:
                 continue
-            with open(data_dir + _file, 'rb') as f:
+            with open(os.path.join(data_dir, _file), 'rb') as f:
                 data = pickle.load(f)
                 perfs = np.array(list(data.values()))
             p_max, p_min = np.max(perfs), np.min(perfs)
@@ -132,7 +150,13 @@ def load_hpo_history():
             source_hpo_ids.append(dataset_id)
 
             # TODO: Add test perf
-            _data = {key_config: data[key_config][0] for key_config in data}
+            if test_mode == 'bo':
+                raise NotImplementedError('TODO: Add test perf')
+            if perfs.ndim == 2:
+                assert perfs.shape[1] == 2
+                _data = {k: v[0] for k, v in data.items()}
+            else:
+                _data = data
             source_hpo_data.append(_data)
 
     assert len(source_hpo_ids) == len(source_hpo_data)
@@ -147,8 +171,8 @@ def load_hpo_history():
                 perfs = np.array(list(data.values()))
                 p_max, p_min = np.max(perfs), np.min(perfs)
                 if p_max == p_min:
-                    print('The same perfs found in the %d-th problem' % id)
-                    data = source_hpo_data[id].copy()
+                    raise ValueError('The same perfs found in the %d-th problem' % id)
+                    # data = source_hpo_data[id].copy()
                 random_hpo_data.append(data)
 
     print('Load meta-features for each dataset.')
@@ -168,12 +192,7 @@ def extract_data(task_set):
     if task_set == 'full':
         hpo_ids, hpo_data, random_test_data, meta_features = load_hpo_history()
     elif task_set in ['class1', 'class2']:
-        if task_set == 'class1':
-            dataset_ids = ['kc1', 'pollen', 'madelon', 'winequality_white', 'sick']
-        else:
-            dataset_ids = ['kc1', 'pollen', 'madelon', 'winequality_white', 'sick', 'quake',
-                           'hypothyroid(1)', 'musk', 'page-blocks(1)', 'page-blocks(2)',
-                           'satimage', 'segment', 'waveform-5000(2)']
+        dataset_ids = get_data_set(task_set)
 
         hpo_ids, hpo_data, random_test_data, meta_features = list(), list(), list(), list()
         hpo_ids_, hpo_data_, random_test_data_, meta_features_ = load_hpo_history()
@@ -197,6 +216,10 @@ if __name__ == "__main__":
     #     raise ValueError('The random test data is empty!')
 
     run_id = list()
+    if targets in ['class1', 'class2', 'full']:
+        targets = get_data_set(targets)
+    else:
+        targets = targets.split(',')
     for target_id in targets:
         target_idx = hpo_ids.index(target_id)
         run_id.append(target_idx)
@@ -289,11 +312,11 @@ if __name__ == "__main__":
                 if mth not in ['mklgp', 'scot', 'tstm']:
                     surrogate = surrogate_class(config_space, source_hpo_data, target_hpo_data, seed,
                                                 surrogate_type=surrogate_type,
-                                                num_src_hpo_trial=n_src_data)
+                                                num_src_hpo_trial=n_src_trial)
                 else:
                     surrogate = surrogate_class(config_space, source_hpo_data, target_hpo_data, seed,
                                                 surrogate_type=surrogate_type,
-                                                num_src_hpo_trial=n_src_data, metafeatures=dataset_meta_features)
+                                                num_src_hpo_trial=n_src_trial, metafeatures=dataset_meta_features)
 
                 if '-dif' in mth:
                     surrogate.same = False
@@ -344,7 +367,7 @@ if __name__ == "__main__":
                 smbo = smbo_framework(target_hpo_data, config_space, surrogate,
                                       random_seed=seed, max_runs=trial_num,
                                       source_hpo_data=source_hpo_data,
-                                      num_src_hpo_trial=n_src_data,
+                                      num_src_hpo_trial=n_src_trial,
                                       surrogate_type=surrogate_type,
                                       enable_init_design=enable_init_design,
                                       initial_runs=init_num,
@@ -358,20 +381,11 @@ if __name__ == "__main__":
                     smbo.use_correct_rate = True
 
                 result = list()
-                rnd_target_perfs = [_perf for (_, _perf) in list(random_test_data[id].items())]
-                rnd_ymax, rnd_ymin = np.max(rnd_target_perfs), np.min(rnd_target_perfs)
-
                 for _iter_id in range(trial_num):
-                    if surrogate.method_id == 'rs':
-                        _perfs = rnd_target_perfs[:(_iter_id + 1)]
-                        y_inc = np.min(_perfs)
-                        adtm = (y_inc - rnd_ymin) / (rnd_ymax - rnd_ymin)
-                        result.append([adtm, y_inc, 0.1])
-                    else:
-                        config, _, perf, _ = smbo.iterate()
-                        time_taken = time.time() - start_time
-                        adtm, y_inc = smbo.get_adtm(), smbo.get_inc_y()
-                        result.append([adtm, y_inc, time_taken])
+                    config, _, perf, _ = smbo.iterate()
+                    time_taken = time.time() - start_time
+                    adtm, y_inc = smbo.get_adtm(), smbo.get_inc_y()
+                    result.append([adtm, y_inc, time_taken])
                     pbar.update(1)
                 # exp_results.append(result)
                 print('In %d-th problem: %s' % (id, hpo_ids[id]), 'adtm, y_inc', result[-1])
@@ -393,34 +407,34 @@ if __name__ == "__main__":
                 # if run_num == len(hpo_ids):
                 #     if pmin != default_pmin or pmax != default_pmax:
                 #         mth_file = '%s_%d_%d_%s_%d_%d_%s_%s_%d.pkl' % (
-                #             mth, pmin, pmax, algo_id, n_src_data, trial_num, surrogate_type, task_id, seed)
+                #             mth, pmin, pmax, algo_id, n_src_trial, trial_num, surrogate_type, task_id, seed)
                 #     else:
                 #         mth_file = '%s_%s_%d_%d_%s_%s_%d.pkl' % (
-                #             mth, algo_id, n_src_data, trial_num, surrogate_type, task_id, seed)
+                #             mth, algo_id, n_src_trial, trial_num, surrogate_type, task_id, seed)
                 #     with open(exp_dir + mth_file, 'wb') as f:
                 #         data = [np.array(exp_results), np.mean(exp_results, axis=0)]
                 #         pickle.dump(data, f)
                 #
                 #     if save_weight == 'true':
                 #         mth_file = 'w_%s_%s_%d_%d_%s_%s_%d.pkl' % (
-                #             mth, algo_id, n_src_data, trial_num, surrogate_type, task_id, seed)
+                #             mth, algo_id, n_src_trial, trial_num, surrogate_type, task_id, seed)
                 #         with open(exp_dir + mth_file, 'wb') as f:
                 #             data = target_weights
                 #             pickle.dump(data, f)
 
                 if pmin != default_pmin or pmax != default_pmax:
-                    mth_file = '%s_%s_%d_%d_%s_%d_%d_%s_%s_%d.pkl' % (
-                        mth, hpo_ids[id], pmin, pmax, algo_id, n_src_data, trial_num, surrogate_type, task_id, seed)
+                    mth_file = '%s_%d_%d_%s_%s_%d_%d_%s_%s_%d.pkl' % (
+                        mth, pmin, pmax, hpo_ids[id], algo_id, n_src_trial, trial_num, surrogate_type, task_id, seed)
                 else:
                     mth_file = '%s_%s_%s_%d_%d_%s_%s_%d.pkl' % (
-                        mth, hpo_ids[id], algo_id, n_src_data, trial_num, surrogate_type, task_id, seed)
+                        mth, hpo_ids[id], algo_id, n_src_trial, trial_num, surrogate_type, task_id, seed)
                 with open(exp_dir + mth_file, 'wb') as f:
                     data = np.array(result)
                     pickle.dump(data, f)
 
                 if save_weight == 'true':
                     mth_file = 'w_%s_%s_%s_%d_%d_%s_%s_%d.pkl' % (
-                        mth, hpo_ids[id], algo_id, n_src_data, trial_num, surrogate_type, task_id, seed)
+                        mth, hpo_ids[id], algo_id, n_src_trial, trial_num, surrogate_type, task_id, seed)
                     with open(exp_dir + mth_file, 'wb') as f:
                         data = surrogate.target_weight
                         pickle.dump(data, f)

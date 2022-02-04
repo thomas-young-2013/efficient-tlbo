@@ -92,8 +92,14 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         # self.prop_eta = 0.9
         # self.prop_init = 0.3
 
-        # Set the parameter in metric.
-        self.ys = list(self.target_hpo_measurements.values())
+        # Set the parameter in metric. TODO: add test perf
+        ys = np.array(list(self.target_hpo_measurements.values()))
+        if ys.ndim == 2:
+            assert ys.shape[1] == 2
+            val_ys = ys[:, 0]
+        else:
+            val_ys = ys
+        self.ys = val_ys
         self.y_max, self.y_min = np.max(self.ys), np.min(self.ys)
 
         self.reduce_cnt = 0
@@ -114,11 +120,6 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         return (y_inc - self.y_min) / (self.y_max - self.y_min)
 
     def get_inc_y(self):
-        # if isinstance(self.model, NoTL):
-        #     _perfs = [_perf for (_, _perf) in list(self.target_hpo_measurements.items())[:self.iteration_id]]
-        #     y_inc = np.min(_perfs)
-        # else:
-        #     y_inc = np.min(self.perfs)
         y_inc = np.min(self.perfs)
         return y_inc
 

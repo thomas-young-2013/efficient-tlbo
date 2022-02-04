@@ -16,4 +16,4 @@ class RandomSearch(BaseFacade):
     def predict(self, X: np.array):
         # Imitate the random search.
         n = X.shape[0]
-        return self.rng.rand(n).reshape(-1, 1), np.array([1e-5]*n).reshape(-1, 1)
+        return self.rng.rand(n, 1), np.array([1e-5]*n).reshape(-1, 1)
