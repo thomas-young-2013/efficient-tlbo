@@ -37,12 +37,12 @@ parser.add_argument('--methods', type=str, default='rs,notl,scot,rgpe,tst,tstm,p
 parser.add_argument('--data_dir', type=str, default='./data/exp_results/')
 parser.add_argument('--transfer_trials', type=int, default=50)
 parser.add_argument('--trial_num', type=int, default=50)
-parser.add_argument('--task_set', type=str, default='class1', choices=['class1', 'class2', 'full'])
+parser.add_argument('--task_set', type=str, default='full', choices=['class1', 'class2', 'full'])
 parser.add_argument('--rep', type=int, default=1)
 parser.add_argument('--start_id', type=int, default=0)
 args = parser.parse_args()
 
-benchmark_id = args.algo_id
+algo_id = args.algo_id
 task_id = args.task_id
 exp_id = args.exp_id
 surrogate_type = args.surrogate_type
@@ -55,7 +55,7 @@ rep = args.rep
 start_id = args.start_id
 
 if exp_id == 'exp1':
-    if benchmark_id == 'adaboost':
+    if algo_id == 'adaboost':
         data_dir = 'data/exp_results/main_random_3_20000/'
     else:
         data_dir = 'data/exp_results/main_random_4_20000/'
@@ -72,7 +72,7 @@ elif exp_id == 'exp4':
 elif exp_id == 'exp5':
     data_dir = 'data/exp_results/warm_random_29_20000'
 elif exp_id == 'exptest':
-    data_dir = 'data/exp_results/main_random_class1_5_20000'
+    data_dir = 'data/exp_results/main_random_full_29_50000'
 else:
     raise ValueError('Invalid exp id - %s.' % exp_id)
 
@@ -80,8 +80,15 @@ if task_set == 'class1':
     datasets = ['kc1', 'pollen', 'madelon', 'winequality_white', 'sick']
 elif task_set == 'class2':
     datasets = ['kc1', 'pollen', 'madelon', 'winequality_white', 'sick', 'quake',
-                   'hypothyroid(1)', 'musk', 'page-blocks(1)', 'page-blocks(2)',
-                   'satimage', 'segment', 'waveform-5000(2)']
+                'hypothyroid(1)', 'musk', 'page-blocks(1)', 'page-blocks(2)',
+                'satimage', 'segment', 'waveform-5000(2)']
+elif task_set == 'full':
+    datasets = ['kc1', 'pollen', 'madelon', 'winequality_white', 'sick',
+                'quake', 'hypothyroid(1)', 'musk', 'page-blocks(1)', 'page-blocks(2)',
+                'satimage', 'segment', 'waveform-5000(2)',
+                'space_ga', 'splice', 'kr-vs-kp', 'hypothyroid(2)', 'spambase', 'analcatdata_supreme', 'balloon',
+                'cpu_act', 'cpu_small', 'bank32nh', 'puma8NH', 'wind', 'mushroom', 'waveform-5000(1)',
+                'delta_ailerons', 'abalone', 'optdigits']
 else:
     raise ValueError(task_set)
 
@@ -170,11 +177,15 @@ if __name__ == "__main__":
     print(methods)
 
     nx, ny = get_subplot_num(n=len(datasets))
-    plt.figure(figsize=(4 * ny, 3 * nx))
+    if len(datasets) <= 16:
+        plt.figure(figsize=(4 * ny, 3 * nx))
+    else:
+        plt.figure(figsize=(3 * ny, 1.5 * nx))
 
     head = [' '] + methods
     table = PrettyTable(head)
 
+    all_datasets_y = dict()
     for data_idx, dataset in enumerate(datasets):
         ax = plt.subplot(nx, ny, data_idx + 1)
         # fig, ax = plt.subplots()
@@ -182,25 +193,43 @@ if __name__ == "__main__":
         row = [dataset]
 
         for idx, method in enumerate(methods):
-            all_array = []
+            # all_array = []
+            # for rep_id in range(start_id, start_id + rep):
+            #     seed = seeds[rep_id]
+            #     filename = '%s_%s_%d_%d_%s_%s_%d.pkl' % (method, algo_id, transfer_trials,
+            #                                              run_trials, surrogate_type, task_id, seed)
+            #     path = os.path.join(data_dir, filename)
+            #     with open(path, 'rb')as f:
+            #         array = pkl.load(f)
+            #     all_array.append(array)
+            # array = []
+            # for i in range(len(all_array[0])):
+            #     data = [arr[i] for arr in all_array]
+            #     array.append(np.mean(data, axis=0))  # mean over repeats
+            #
+            # x = list(range(len(array[1])))
+            # y = array[0][data_idx][:, 0]
+            # print(array[0].shape)
+            # print(method, np.std(array[0], axis=0)[:, 1])
+
+            all_data = []
             for rep_id in range(start_id, start_id + rep):
                 seed = seeds[rep_id]
-                filename = '%s_%s_%d_%d_%s_%s_%d.pkl' % (method, benchmark_id, transfer_trials,
-                                                         run_trials, surrogate_type, task_id, seed)
+                filename = '%s_%s_%s_%d_%d_%s_%s_%d.pkl' % (
+                    method, dataset, algo_id, transfer_trials, run_trials, surrogate_type, task_id, seed)
                 path = os.path.join(data_dir, filename)
                 with open(path, 'rb')as f:
-                    array = pkl.load(f)
-                all_array.append(array)
-            array = []
-            for i in range(len(all_array[0])):
-                data = [arr[i] for arr in all_array]
-                array.append(np.mean(data, axis=0))  # mean over repeats
+                    data = pkl.load(f)
+                all_data.append(data)
+
+            mean_data = np.mean(all_data, axis=0)  # mean over repeats
+            x = np.arange(mean_data.shape[0]) + 1
+            y = mean_data[:, 0]
+            if method not in all_datasets_y.keys():
+                all_datasets_y[method] = []
+            all_datasets_y[method].append(y)
 
             label_name = r'\textbf{%s}' % names_dict[method]
-            x = list(range(len(array[1])))
-            y = array[0][data_idx][:, 0]
-            print(array[0].shape)
-            print(method, np.std(array[0], axis=0)[:, 1])
             lw = 2 if method in method_ids else 1
             # print(x, y)
             ax.plot(x, y, lw=lw,
@@ -212,7 +241,8 @@ if __name__ == "__main__":
                                  markersize=ms, label=label_name)
             handles.append(line)
 
-            item = np.round(array[0][data_idx][:, 1][-1], 6)  # last val perf
+            # item = np.round(array[0][data_idx][:, 1][-1], 6)  # last val perf
+            item = np.round(mean_data[:, 1][-1], 6)  # last val perf
             row.append(item)
 
         # if exp_id == 'exp3':
@@ -221,11 +251,14 @@ if __name__ == "__main__":
         #     legend = ax.legend(handles=handles, loc=1, ncol=3)
         legend = ax.legend(handles=handles, loc=1, ncol=1)
         ax.xaxis.set_major_locator(ticker.MultipleLocator(5))
-        ax.set_xlabel('\\textbf{Number of Trials', fontsize=label_fontsize)
+        if len(datasets) <= 16:
+            ax.set_xlabel('\\textbf{Number of Trials', fontsize=label_fontsize)
+            ax.set_ylabel('\\textbf{ADTM}', fontsize=label_fontsize)
+            title_size = 16
+        else:
+            title_size = 10
 
-        ax.set_ylabel('\\textbf{ADTM}', fontsize=label_fontsize)
-
-        plt.title('[%s]-%s' % (args.algo_id.replace('_', '\\_'), dataset.replace('_', '\\_'),))
+        plt.title('[%s]-%s' % (args.algo_id.replace('_', '\\_'), dataset.replace('_', '\\_'),), fontsize=title_size)
         # plt.subplots_adjust(top=0.97, right=0.968, left=0.16, bottom=0.13)
 
         table.add_row(row)
@@ -233,5 +266,17 @@ if __name__ == "__main__":
     print(table)
 
     plt.tight_layout(pad=0.2)
-    # plt.savefig(os.path.join(data_dir, '%s_%s_%d_%s_result_adtm.pdf' % (exp_id, benchmark_id, run_trials, metric)))
+    # plt.savefig(os.path.join(data_dir, '%s_%s_%d_%s_result_adtm.pdf' % (exp_id, algo_id, run_trials, metric)))
+    plt.show()
+
+    for method, v in all_datasets_y.items():
+        mean_y = np.mean(v, axis=0)  # mean over datasets
+        x = np.arange(mean_y.shape[0]) + 1
+        plt.plot(x, mean_y, label=r'\textbf{%s}' % names_dict[method], color=color_dict[method],
+                 marker=marker_dict[method], markersize=ms, markevery=me)
+    plt.legend()
+    plt.title('[%s]' % (args.algo_id.replace('_', '\\_'), ))
+    plt.xlabel('\\textbf{Number of Trials', fontsize=label_fontsize)
+    plt.ylabel('\\textbf{ADTM}', fontsize=label_fontsize)
+    plt.tight_layout(pad=0.2)
     plt.show()

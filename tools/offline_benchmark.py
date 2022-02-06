@@ -57,8 +57,8 @@ parser.add_argument('--init_num', type=int, default=0)
 # parser.add_argument('--run_num', type=int, default=-1)
 parser.add_argument('--num_source_trial', type=int, default=50)
 parser.add_argument('--num_source_problem', type=int, default=-1)
-parser.add_argument('--task_set', type=str, default='class1', choices=['class1', 'class2', 'full'])
-parser.add_argument('--target_set', type=str, default='class1')
+parser.add_argument('--task_set', type=str, default='full', choices=['class1', 'class2', 'full'])
+parser.add_argument('--target_set', type=str, default='full')
 parser.add_argument('--num_source_data', type=int, default=10000)
 parser.add_argument('--num_random_data', type=int, default=50000)
 parser.add_argument('--save_weight', type=str, default='false')
@@ -101,12 +101,15 @@ else:
     # Default number of random configurations.
     init_num = 3
 
-algorithms = ['lightgbm', 'random_forest', 'linear', 'adaboost', 'lda', 'extra_trees']
+algorithms = ['lightgbm', 'random_forest', 'linear', 'adaboost', 'lda', 'extra_trees', 'resnet']
 algo_str = '|'.join(algorithms)
 src_pattern = '(.*)-(%s)-(\d+).pkl' % algo_str
 
 
 def get_data_set(set_name):
+    if algo_id == 'resnet':
+        return ['cifar-10', 'svhn', 'caltech256', 'tiny-imagenet']
+
     assert set_name in ['class1', 'class2', 'full']
     if set_name == 'class1':
         data_set = ['kc1', 'pollen', 'madelon', 'winequality_white', 'sick']
@@ -177,14 +180,18 @@ def load_hpo_history():
 
     print('Load meta-features for each dataset.')
     meta_features = list()
-    with open(data_dir + 'dataset_metafeatures.pkl', 'rb') as f:
-        dataset_info = pickle.load(f)
-        dataset_ids = [item for item in dataset_info['task_ids']]
-        dataset_meta_features = list(dataset_info['dataset_embedding'])
-        meta_features_dict = dict(zip(dataset_ids, dataset_meta_features))
-    for hpo_id in source_hpo_ids:
-        assert hpo_id in dataset_ids
-        meta_features.append(np.array(meta_features_dict[hpo_id], dtype=np.float64))
+    if algo_id == 'resnet':  # todo
+        print('no meta-features for resnet!')
+        meta_features = [np.zeros(1) for _ in range(len(source_hpo_ids))]
+    else:
+        with open(os.path.join(data_dir, 'dataset_metafeatures.pkl'), 'rb') as f:
+            dataset_info = pickle.load(f)
+            dataset_ids = [item for item in dataset_info['task_ids']]
+            dataset_meta_features = list(dataset_info['dataset_embedding'])
+            meta_features_dict = dict(zip(dataset_ids, dataset_meta_features))
+        for hpo_id in source_hpo_ids:
+            assert hpo_id in dataset_ids
+            meta_features.append(np.array(meta_features_dict[hpo_id], dtype=np.float64))
     return source_hpo_ids, source_hpo_data, random_hpo_data, meta_features
 
 
@@ -428,14 +435,14 @@ if __name__ == "__main__":
                 else:
                     mth_file = '%s_%s_%s_%d_%d_%s_%s_%d.pkl' % (
                         mth, hpo_ids[id], algo_id, n_src_trial, trial_num, surrogate_type, task_id, seed)
-                with open(exp_dir + mth_file, 'wb') as f:
+                with open(os.path.join(exp_dir, mth_file), 'wb') as f:
                     data = np.array(result)
                     pickle.dump(data, f)
 
                 if save_weight == 'true':
                     mth_file = 'w_%s_%s_%s_%d_%d_%s_%s_%d.pkl' % (
                         mth, hpo_ids[id], algo_id, n_src_trial, trial_num, surrogate_type, task_id, seed)
-                    with open(exp_dir + mth_file, 'wb') as f:
+                    with open(os.path.join(exp_dir, mth_file), 'wb') as f:
                         data = surrogate.target_weight
                         pickle.dump(data, f)
     pbar.close()

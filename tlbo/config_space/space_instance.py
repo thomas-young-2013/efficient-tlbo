@@ -123,6 +123,15 @@ def get_configspace_instance(algo_id='random_forest'):
                                 max_depth, min_samples_split, min_samples_leaf,
                                 min_weight_fraction_leaf, max_leaf_nodes,
                                 min_impurity_decrease, bootstrap])
+    elif algo_id == 'resnet':
+        batch_size = UniformIntegerHyperparameter("train_batch_size", 32, 256, default_value=64, q=8)
+        init_lr = UniformFloatHyperparameter('init_lr', lower=1e-3, upper=0.3, default_value=0.1, log=True)
+        lr_decay_factor = UnParametrizedHyperparameter('lr_decay_factor', 0.1)
+        weight_decay = UniformFloatHyperparameter('weight_decay', lower=1e-5, upper=1e-2, default_value=0.0002,
+                                                  log=True)
+        momentum = UniformFloatHyperparameter("momentum", 0.5, .99, default_value=0.9)
+        nesterov = CategoricalHyperparameter('nesterov', ['True', 'False'], default_value='True')
+        cs.add_hyperparameters([batch_size, init_lr, lr_decay_factor, weight_decay, momentum, nesterov])
     else:
         raise ValueError('Invalid algorithm - %s' % algo_id)
     return cs
