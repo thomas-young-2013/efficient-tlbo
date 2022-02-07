@@ -202,3 +202,20 @@ class RGPESPACE(BaseFacade):
 
     def get_weights(self):
         return self.w
+
+
+class RGPESPACE_BO(RGPESPACE):
+    def predict(self, X: np.array):
+        mu, var = self.target_surrogate.predict(X)
+        return mu, var
+
+
+class RGPESPACE_RS(RGPESPACE):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.rng = np.random.RandomState(kwargs['seed'])
+
+    def predict(self, X: np.array):
+        # Imitate the random search.
+        n = X.shape[0]
+        return self.rng.rand(n, 1), np.array([1e-5] * n).reshape(-1, 1)

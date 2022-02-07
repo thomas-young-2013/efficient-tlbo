@@ -73,10 +73,14 @@ elif exp_id == 'exp5':
     data_dir = 'data/exp_results/warm_random_29_20000'
 elif exp_id == 'exptest':
     data_dir = 'data/exp_results/main_random_full_29_50000'
+elif exp_id == 'expresnet':
+    data_dir = 'data/exp_results/main_random_full_3_2000'
 else:
     raise ValueError('Invalid exp id - %s.' % exp_id)
 
-if task_set == 'class1':
+if exp_id == 'expresnet':
+    datasets = ['cifar-10', 'svhn', 'caltech256', 'tiny-imagenet']
+elif task_set == 'class1':
     datasets = ['kc1', 'pollen', 'madelon', 'winequality_white', 'sick']
 elif task_set == 'class2':
     datasets = ['kc1', 'pollen', 'madelon', 'winequality_white', 'sick', 'quake',
@@ -97,7 +101,7 @@ def fetch_color_marker(m_list):
     color_dict = dict()
     marker_dict = dict()
     names_dict = dict()
-    method_ids = ['obtl', 'space', 'notl', 'scot', 'sgpr', 'tst', 'tstm', 'pogpe', 'rgpe']
+    method_ids = ['obtl', 'space', 'notl_', 'scot', 'sgpr', 'tst', 'tstm', 'pogpe', 'rgpe']
     method_names = ['TOPO', 'SPACE', 'I-GP', 'SCoT', 'SGPR', 'TST', 'TST-M', 'POGPE', 'RGPE']
     color_list = ['red', 'orchid', 'royalblue', 'brown', 'purple', 'orange', 'yellowgreen', 'navy', 'green', 'black']
     markers = ['s', '^', '*', 'v', 'o', 'p', '2', 'x', '+', 'H']
@@ -122,10 +126,10 @@ def fetch_color_marker(m_list):
                 fill_values(name, 2)
             else:
                 raise ValueError('Unexpected method - %s.' % name)
-        elif exp_id in ['exp1', 'exp2', 'exp5', 'exp3', 'exptest']:
+        elif exp_id in ['exp1', 'exp2', 'exp5', 'exp3', 'exptest', 'expresnet']:
             if name == 'space':
                 fill_values(name, 1)
-            elif name == 'notl':
+            elif name == 'notl_':
                 fill_values(name, 2)
             elif name == 'scot' or name == 'topo_v3':
                 fill_values(name, 3)
@@ -144,6 +148,7 @@ def fetch_color_marker(m_list):
                     fill_values(name, 0)
                 else:
                     fill_values(name, undefined_cnt)
+                    print('fill', name, undefined_cnt)
                     undefined_cnt = (undefined_cnt + 1) % len(color_list)
                     # raise ValueError('Invalid method - %s.' % name)
         else:
@@ -249,7 +254,8 @@ if __name__ == "__main__":
         #     legend = ax.legend(handles=handles, loc=1, ncol=2)
         # else:
         #     legend = ax.legend(handles=handles, loc=1, ncol=3)
-        legend = ax.legend(handles=handles, loc=1, ncol=1)
+        if len(datasets) <= 20 or dataset == 'mushroom':   # todo
+            legend = ax.legend(handles=handles, loc=1, ncol=1)
         ax.xaxis.set_major_locator(ticker.MultipleLocator(5))
         if len(datasets) <= 16:
             ax.set_xlabel('\\textbf{Number of Trials', fontsize=label_fontsize)

@@ -32,10 +32,11 @@ from tlbo.facade.topo_variant2 import TOPO
 from tlbo.facade.topo_variant3 import TOPO_V3
 from tlbo.facade.topo import TransBO_RGPE
 from tlbo.facade.mfes import MFES
-from tlbo.facade.rgpe_space import RGPESPACE
+from tlbo.facade.rgpe_space import RGPESPACE, RGPESPACE_BO, RGPESPACE_RS
 from tlbo.facade.tst_space import TSTSPACE
 from tlbo.facade.norm import NORM
 from tlbo.facade.norm_minus import NORMMinus
+from tlbo.facade.norm_rs import NORMRandomSearch
 from tlbo.facade.norm_tst import NORMTST
 from tlbo.facade.random_surrogate import RandomSearch
 from tlbo.framework.smbo_offline import SMBO_OFFLINE
@@ -301,27 +302,42 @@ if __name__ == "__main__":
                 elif mth == 'ultra':
                     surrogate_class = RGPE
                 elif mth.startswith('rgpe-space'):
-                    surrogate_class = RGPESPACE
+                    if 'bo' in mth:
+                        surrogate_class = RGPESPACE_BO
+                    elif 'rs' in mth:
+                        surrogate_class = RGPESPACE_RS
+                    else:
+                        surrogate_class = RGPESPACE
                 elif mth.startswith('tst-space'):
                     surrogate_class = TSTSPACE
                 elif 'tst' in mth:
                     surrogate_class = NORMTST
-                elif mth.endswith('-'):
-                    surrogate_class = NORMMinus
+                # elif mth.endswith('-'):
+                #     surrogate_class = NORMMinus
                 elif 'space' in mth:
-                    surrogate_class = NORM
-                elif mth in ['box', 'ellipsoid']:
-                    surrogate_class = NoTL
+                    if 'rs' in mth:
+                        surrogate_class = NORMRandomSearch
+                    elif 'bo' in mth:
+                        surrogate_class = NORMMinus
+                    else:
+                        surrogate_class = NORM
+                elif mth in ['bo-box', 'bo-ellipsoid']:
+                    surrogate_class = NoTL  # BO
+                elif mth in ['rs-box', 'rs-ellipsoid']:
+                    surrogate_class = RandomSearch
                 elif mth in ['rgpe-box', 'rgpe-ellipsoid']:
                     surrogate_class = RGPE
                 else:
                     raise ValueError('Invalid baseline name - %s.' % mth)
+                print('surrogate_class:', surrogate_class.__name__)
                 if mth not in ['mklgp', 'scot', 'tstm']:
-                    surrogate = surrogate_class(config_space, source_hpo_data, target_hpo_data, seed,
+                    surrogate = surrogate_class(config_space, source_hpo_data, target_hpo_data,
+                                                seed=seed,
                                                 surrogate_type=surrogate_type,
                                                 num_src_hpo_trial=n_src_trial)
                 else:
-                    surrogate = surrogate_class(config_space, source_hpo_data, target_hpo_data, seed,
+                    surrogate = surrogate_class(config_space, source_hpo_data, target_hpo_data,
+                                                seed=seed,
                                                 surrogate_type=surrogate_type,
                                                 num_src_hpo_trial=n_src_trial, metafeatures=dataset_meta_features)
 
@@ -360,13 +376,9 @@ if __name__ == "__main__":
                     smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='sample', model=model)
                 elif 'space' in mth:
                     smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='best', model=model)
-                elif mth == 'box':
+                elif 'box' in mth:
                     smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='box', model=model)
-                elif mth == 'ellipsoid':
-                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='ellipsoid', model=model)
-                elif mth == 'rgpe-box':
-                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='box', model=model)
-                elif mth == 'rgpe-ellipsoid':
+                elif 'ellipsoid' in mth:
                     smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='ellipsoid', model=model)
                 else:
                     smbo_framework = SMBO_OFFLINE
