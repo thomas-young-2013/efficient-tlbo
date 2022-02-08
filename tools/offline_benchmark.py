@@ -372,7 +372,9 @@ if __name__ == "__main__":
                 else:
                     model = 'svm'
 
-                if 'all+-sample+' in mth:
+                if 'all+-sample+-threshold' in mth:
+                    smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='all+-sample+-threshold', model=model)
+                elif 'all+-sample+' in mth:
                     smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='all+-sample+', model=model)
                 elif 'all+-sample' in mth:
                     smbo_framework = partial(SMBO_SEARCH_SPACE_Enlarge, mode='all+-sample', model=model)
