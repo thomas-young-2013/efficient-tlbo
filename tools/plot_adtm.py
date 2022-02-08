@@ -37,7 +37,7 @@ parser.add_argument('--methods', type=str, default='rs,notl,scot,rgpe,tst,tstm,p
 parser.add_argument('--data_dir', type=str, default='./data/exp_results/')
 parser.add_argument('--transfer_trials', type=int, default=50)
 parser.add_argument('--trial_num', type=int, default=50)
-parser.add_argument('--task_set', type=str, default='full', choices=['class1', 'class2', 'full'])
+parser.add_argument('--task_set', type=str, default='full', choices=['class1', 'class2', 'full', 'data20'])
 parser.add_argument('--rep', type=int, default=1)
 parser.add_argument('--start_id', type=int, default=0)
 args = parser.parse_args()
@@ -72,7 +72,8 @@ elif exp_id == 'exp4':
 elif exp_id == 'exp5':
     data_dir = 'data/exp_results/warm_random_29_20000'
 elif exp_id == 'exptest':
-    data_dir = 'data/exp_results/main_random_full_29_50000'
+    # data_dir = 'data/exp_results/main_random_full_29_50000'
+    data_dir = 'data/exp_results/main_random_data20_19_50000'
 elif exp_id == 'expresnet':
     data_dir = 'data/exp_results/main_random_full_3_2000'
 else:
@@ -93,8 +94,17 @@ elif task_set == 'full':
                 'space_ga', 'splice', 'kr-vs-kp', 'hypothyroid(2)', 'spambase', 'analcatdata_supreme', 'balloon',
                 'cpu_act', 'cpu_small', 'bank32nh', 'puma8NH', 'wind', 'mushroom', 'waveform-5000(1)',
                 'delta_ailerons', 'abalone', 'optdigits']
+elif task_set == 'data20':
+    datasets = [
+        'winequality_white', 'sick', 'page-blocks(2)', 'satimage',
+        'segment', 'wind', 'delta_ailerons', 'abalone',
+        'kc1', 'madelon', 'quake', 'musk', 'waveform-5000(2)',
+        'space_ga', 'puma8NH', 'waveform-5000(1)', 'optdigits',
+        'pollen', 'cpu_act', 'cpu_small',
+    ]
 else:
-    raise ValueError(task_set)
+    datasets = task_set.split(',')
+    print('datasets:', datasets)
 
 
 def fetch_color_marker(m_list):
@@ -254,8 +264,8 @@ if __name__ == "__main__":
         #     legend = ax.legend(handles=handles, loc=1, ncol=2)
         # else:
         #     legend = ax.legend(handles=handles, loc=1, ncol=3)
-        if len(datasets) <= 20 or dataset == 'mushroom':   # todo
-            legend = ax.legend(handles=handles, loc=1, ncol=1)
+        if data_idx == 0:
+            legend = ax.legend(handles=handles, loc=1, ncol=2)
         ax.xaxis.set_major_locator(ticker.MultipleLocator(5))
         if len(datasets) <= 16:
             ax.set_xlabel('\\textbf{Number of Trials', fontsize=label_fontsize)

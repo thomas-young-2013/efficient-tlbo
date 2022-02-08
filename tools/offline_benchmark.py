@@ -58,7 +58,7 @@ parser.add_argument('--init_num', type=int, default=0)
 # parser.add_argument('--run_num', type=int, default=-1)
 parser.add_argument('--num_source_trial', type=int, default=50)
 parser.add_argument('--num_source_problem', type=int, default=-1)
-parser.add_argument('--task_set', type=str, default='full', choices=['class1', 'class2', 'full'])
+parser.add_argument('--task_set', type=str, default='full', choices=['class1', 'class2', 'full', 'data20'])
 parser.add_argument('--target_set', type=str, default='full')
 parser.add_argument('--num_source_data', type=int, default=10000)
 parser.add_argument('--num_random_data', type=int, default=50000)
@@ -111,20 +111,29 @@ def get_data_set(set_name):
     if algo_id == 'resnet':
         return ['cifar-10', 'svhn', 'caltech256', 'tiny-imagenet']
 
-    assert set_name in ['class1', 'class2', 'full']
     if set_name == 'class1':
         data_set = ['kc1', 'pollen', 'madelon', 'winequality_white', 'sick']
     elif set_name == 'class2':
         data_set = ['kc1', 'pollen', 'madelon', 'winequality_white', 'sick',
                     'quake', 'hypothyroid(1)', 'musk', 'page-blocks(1)', 'page-blocks(2)',
                     'satimage', 'segment', 'waveform-5000(2)']
-    else:
+    elif set_name == 'full':
         data_set = ['kc1', 'pollen', 'madelon', 'winequality_white', 'sick',
                     'quake', 'hypothyroid(1)', 'musk', 'page-blocks(1)', 'page-blocks(2)',
                     'satimage', 'segment', 'waveform-5000(2)',
                     'space_ga', 'splice', 'kr-vs-kp', 'hypothyroid(2)', 'spambase', 'analcatdata_supreme', 'balloon',
                     'cpu_act', 'cpu_small', 'bank32nh', 'puma8NH', 'wind', 'mushroom', 'waveform-5000(1)',
                     'delta_ailerons', 'abalone', 'optdigits']
+    elif set_name == 'data20':
+        data_set = [
+            'winequality_white', 'sick', 'page-blocks(2)', 'satimage',
+            'segment', 'wind', 'delta_ailerons', 'abalone',
+            'kc1', 'madelon', 'quake', 'musk', 'waveform-5000(2)',
+            'space_ga', 'puma8NH', 'waveform-5000(1)', 'optdigits',
+            'pollen', 'cpu_act', 'cpu_small',
+        ]
+    else:
+        raise ValueError(set_name)
     return data_set
 
 
@@ -199,7 +208,7 @@ def load_hpo_history():
 def extract_data(task_set):
     if task_set == 'full':
         hpo_ids, hpo_data, random_test_data, meta_features = load_hpo_history()
-    elif task_set in ['class1', 'class2']:
+    elif task_set in ['class1', 'class2', 'data20']:
         dataset_ids = get_data_set(task_set)
 
         hpo_ids, hpo_data, random_test_data, meta_features = list(), list(), list(), list()
@@ -224,7 +233,7 @@ if __name__ == "__main__":
     #     raise ValueError('The random test data is empty!')
 
     run_id = list()
-    if targets in ['class1', 'class2', 'full']:
+    if targets in ['class1', 'class2', 'full', 'data20']:
         targets = get_data_set(targets)
     else:
         targets = targets.split(',')
