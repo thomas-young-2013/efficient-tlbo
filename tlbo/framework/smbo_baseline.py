@@ -340,10 +340,16 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
             task_indexes = np.argsort(weights)  # space-all
             task_indexes = [idx_ for idx_ in task_indexes if weights[idx_] > 0.]
         elif self.mode in ['all+-sample+', 'all+-sample+-threshold']:
-            weights_ = weights[:-1]
-            weights_ = [x / sum(weights_) for x in weights_]  # space-sample-new
-            task_indexes = np.random.choice(list(range(len(weights_))), 5, p=weights_, replace=False)
-            task_indexes = sorted(task_indexes, key=lambda x: -weights_[x])
+            n_src_samples = 5
+            w_norm = 4
+            weights_ = np.array(weights[:-1])
+            weights_ = np.clip(weights_ - 0.5, 0.0, 1.0) ** w_norm
+            if np.sum(weights_ > 0) <= n_src_samples:
+                task_indexes = np.where(weights_ > 0)[0]    # can be empty!
+            else:
+                weights_ = [x / sum(weights_) for x in weights_]  # space-sample-new
+                task_indexes = np.random.choice(list(range(len(weights_))), n_src_samples, p=weights_, replace=False)
+            task_indexes = sorted(task_indexes, key=lambda x: weights_[x])
         elif self.mode == 'sample':
             # Target excluded
             weights = weights[:-1]
@@ -353,6 +359,8 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
             # Target should also be sampled
             weights_ = [x / sum(weights) for x in weights]  # space-sample-new
             task_indexes = np.random.choice(list(range(len(weights))), 1, p=weights_)
+        else:
+            raise ValueError(self.mode)
 
         print('Task Indexes', task_indexes)
 
@@ -387,6 +395,12 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
                 y_pred) > 0:
             if self.mode == 'all+-sample' and np.random.random_sample() < self.model.w[-1]:
                 print('Use the target space!')
+                if len(self.configurations) <= 20:
+                    X_candidate = self.configuration_list
+                else:
+                    X_candidate = self.choose_config_target_space()
+            elif np.asarray(task_indexes).shape[0] == 0:    # if task_indexes is empty
+                print('No suitable source tasks! Use the target space!')
                 if len(self.configurations) <= 20:
                     X_candidate = self.configuration_list
                 else:
