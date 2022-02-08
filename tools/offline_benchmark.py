@@ -102,7 +102,7 @@ else:
     # Default number of random configurations.
     init_num = 3
 
-algorithms = ['lightgbm', 'random_forest', 'linear', 'adaboost', 'lda', 'extra_trees', 'resnet']
+algorithms = ['lightgbm', 'random_forest', 'linear', 'adaboost', 'lda', 'extra_trees', 'resnet', 'nas']
 algo_str = '|'.join(algorithms)
 src_pattern = '(.*)-(%s)-(\d+).pkl' % algo_str
 
@@ -110,6 +110,9 @@ src_pattern = '(.*)-(%s)-(\d+).pkl' % algo_str
 def get_data_set(set_name):
     if algo_id == 'resnet':
         return ['cifar-10', 'svhn', 'caltech256', 'tiny-imagenet']
+
+    if algo_id == 'nas':
+        return ['cifar-10', 'cifar-100', 'imagenet']
 
     if set_name == 'class1':
         data_set = ['kc1', 'pollen', 'madelon', 'winequality_white', 'sick']
@@ -190,7 +193,7 @@ def load_hpo_history():
 
     print('Load meta-features for each dataset.')
     meta_features = list()
-    if algo_id == 'resnet':  # todo
+    if algo_id in ['resnet', 'nas']:  # todo
         print('no meta-features for resnet!')
         meta_features = [np.zeros(1) for _ in range(len(source_hpo_ids))]
     else:

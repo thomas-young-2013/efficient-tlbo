@@ -132,6 +132,21 @@ def get_configspace_instance(algo_id='random_forest'):
         momentum = UniformFloatHyperparameter("momentum", 0.5, .99, default_value=0.9)
         nesterov = CategoricalHyperparameter('nesterov', ['True', 'False'], default_value='True')
         cs.add_hyperparameters([batch_size, init_lr, lr_decay_factor, weight_decay, momentum, nesterov])
+    elif algo_id == 'nas':
+        operation = 6
+        benchmark201_choices = [
+            'none',
+            'skip_connect',
+            'nor_conv_1x1',
+            'nor_conv_3x3',
+            'avg_pool_3x3'
+        ]
+        for i in range(operation):
+            cs.add_hyperparameter(
+                CategoricalHyperparameter('op_%d' % i, choices=benchmark201_choices,
+                                          default_value=benchmark201_choices[1]))
+
+        return cs
     else:
         raise ValueError('Invalid algorithm - %s' % algo_id)
     return cs

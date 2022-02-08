@@ -339,10 +339,11 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
             weights = weights[:-1]
             task_indexes = np.argsort(weights)  # space-all
             task_indexes = [idx_ for idx_ in task_indexes if weights[idx_] > 0.]
-        elif self.mode in ['all+-sample+']:
+        elif self.mode in ['all+-sample+', 'all+-sample+-threshold']:
             weights_ = weights[:-1]
             weights_ = [x / sum(weights_) for x in weights_]  # space-sample-new
-            task_indexes = np.random.choice(list(range(len(weights_))), 2, p=weights_, replace=False)
+            task_indexes = np.random.choice(list(range(len(weights_))), 5, p=weights_, replace=False)
+            task_indexes = sorted(task_indexes, key=lambda x: -weights_[x])
         elif self.mode == 'sample':
             # Target excluded
             weights = weights[:-1]
@@ -382,7 +383,8 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
 
         X_candidate = list()
 
-        if self.mode in ['all+', 'all+-sample', 'all+-threshold'] and len(y_pred) > 0:
+        if self.mode in ['all+', 'all+-sample', 'all+-threshold', 'all+-sample+', 'all+-sample+-threshold'] and len(
+                y_pred) > 0:
             if self.mode == 'all+-sample' and np.random.random_sample() < self.model.w[-1]:
                 print('Use the target space!')
                 if len(self.configurations) <= 20:
@@ -402,7 +404,7 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
                             config_indexes.append(_col)
                     print('The intersection of candidate space is %d.' % _cnt)
 
-                    if self.mode == 'all+-threshold':
+                    if self.mode in ['all+-threshold', 'all+-sample+-threshold']:
                         if _cnt < self.space_threshold * len(self.target_hpo_measurements) and len(pred_mat) > 1:
                             print('Threhold not meet!')
                             pred_mat = pred_mat[1:]
@@ -599,7 +601,7 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
             import cvxpy as cp
             lenth = X_incumbents_.shape[1]
             self.lenth = lenth
-            A = cp.Variable((lenth,lenth),PSD=True)
+            A = cp.Variable((lenth, lenth), PSD=True)
             b = cp.Variable(lenth)
             objective = cp.Minimize(-cp.log_det(A))
             constraint = [cp.norm(A @ X_incumbents_[i] + b) <= 1 for i in range(X_incumbents_.shape[0])]
@@ -607,7 +609,7 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
             prob.solve(qcp=True)
             self.src_A = A.value
             self.src_b = b.value
-            print('A',self.src_A,'b',self.src_b)
+            print('A', self.src_A, 'b', self.src_b)
         elif self.mode == 'box':
             self.src_X_min_ = np.min(X_incumbents_, axis=0)
             self.src_X_max_ = np.max(X_incumbents_, axis=0)
@@ -625,7 +627,7 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
         if self.mode == 'ellipsoid':
             valid_idx = []
             for i in range(len(X_ALL_)):
-                if np.linalg.norm(self.src_A@X_ALL_[i] + self.src_b) <= 1:
+                if np.linalg.norm(self.src_A @ X_ALL_[i] + self.src_b) <= 1:
                     valid_idx.append(i)
             if len(valid_idx) == 0:
                 print('[Warning] no candidates in ellipsoid area!')
@@ -660,4 +662,3 @@ class SMBO_SEARCH_SPACE_Enlarge(BasePipeline):
             return X_candidate
         else:
             raise ValueError(self.mode)
-
