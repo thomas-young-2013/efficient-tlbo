@@ -37,7 +37,7 @@ parser.add_argument('--methods', type=str, default='rs,notl,scot,rgpe,tst,tstm,p
 parser.add_argument('--data_dir', type=str, default='./data/exp_results/')
 parser.add_argument('--transfer_trials', type=int, default=50)
 parser.add_argument('--trial_num', type=int, default=50)
-parser.add_argument('--task_set', type=str, default='full', choices=['class1', 'class2', 'full', 'data20'])
+parser.add_argument('--task_set', type=str, default='full')
 parser.add_argument('--rep', type=int, default=1)
 parser.add_argument('--start_id', type=int, default=0)
 args = parser.parse_args()
@@ -79,7 +79,7 @@ elif exp_id == 'expresnet':
 else:
     raise ValueError('Invalid exp id - %s.' % exp_id)
 
-if exp_id == 'expresnet':
+if exp_id == 'expresnet' and task_set == 'full':
     datasets = ['cifar-10', 'svhn', 'caltech256', 'tiny-imagenet']
 elif task_set == 'class1':
     datasets = ['kc1', 'pollen', 'madelon', 'winequality_white', 'sick']
