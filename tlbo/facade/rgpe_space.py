@@ -219,3 +219,16 @@ class RGPESPACE_RS(RGPESPACE):
         # Imitate the random search.
         n = X.shape[0]
         return self.rng.rand(n, 1), np.array([1e-5] * n).reshape(-1, 1)
+
+
+class RGPESPACE_TST(RGPESPACE):
+    def predict(self, X: np.array):
+        mu, var = self.target_surrogate.predict(X)
+        denominator = 0.75
+        for i in range(0, self.K):
+            weight = self.sw[i]
+            mu_t, _ = self.source_surrogates[i].predict(X)
+            mu += weight * mu_t
+            denominator += weight
+        mu /= denominator
+        return mu, var

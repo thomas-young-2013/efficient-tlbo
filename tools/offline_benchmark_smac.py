@@ -32,7 +32,7 @@ from tlbo.facade.topo_variant2 import TOPO
 from tlbo.facade.topo_variant3 import TOPO_V3
 from tlbo.facade.topo import TransBO_RGPE
 from tlbo.facade.mfes import MFES
-from tlbo.facade.rgpe_space import RGPESPACE, RGPESPACE_BO, RGPESPACE_RS, RGPESPACE_TST
+from tlbo.facade.rgpe_space import RGPESPACE, RGPESPACE_BO, RGPESPACE_RS
 from tlbo.facade.tst_space import TSTSPACE
 from tlbo.facade.norm import NORM
 from tlbo.facade.norm_minus import NORMMinus
@@ -51,7 +51,7 @@ parser.add_argument('--task_id', type=str, default='main')
 parser.add_argument('--exp_id', type=str, default='main')
 parser.add_argument('--algo_id', type=str, default='random_forest')
 parser.add_argument('--methods', type=str, default='rgpe')
-parser.add_argument('--surrogate_type', type=str, default='gp')
+parser.add_argument('--surrogate_type', type=str, default='rf')  # TODO: caution! file name gp
 parser.add_argument('--test_mode', type=str, default='random')
 parser.add_argument('--trial_num', type=int, default=50)
 parser.add_argument('--init_num', type=int, default=0)
@@ -318,10 +318,8 @@ if __name__ == "__main__":
                         surrogate_class = RGPESPACE_BO
                     elif 'rs' in mth:
                         surrogate_class = RGPESPACE_RS
-                    elif 'tst' in mth:
-                        surrogate_class = RGPESPACE_TST
                     else:
-                        surrogate_class = RGPESPACE     # rgpe
+                        surrogate_class = RGPESPACE
                 elif mth.startswith('tst-space'):
                     surrogate_class = TSTSPACE
                 elif 'tst' in mth:
@@ -458,11 +456,11 @@ if __name__ == "__main__":
                 #             pickle.dump(data, f)
 
                 if pmin != default_pmin or pmax != default_pmax:
-                    mth_file = '%s_%d_%d_%s_%s_%d_%d_%s_%s_%d.pkl' % (
-                        mth, pmin, pmax, hpo_ids[id], algo_id, n_src_trial, trial_num, surrogate_type, task_id, seed)
+                    mth_file = '%s-smac_%d_%d_%s_%s_%d_%d_%s_%s_%d.pkl' % (
+                        mth, pmin, pmax, hpo_ids[id], algo_id, n_src_trial, trial_num, 'gp', task_id, seed)
                 else:
-                    mth_file = '%s_%s_%s_%d_%d_%s_%s_%d.pkl' % (
-                        mth, hpo_ids[id], algo_id, n_src_trial, trial_num, surrogate_type, task_id, seed)
+                    mth_file = '%s-smac_%s_%s_%d_%d_%s_%s_%d.pkl' % (
+                        mth, hpo_ids[id], algo_id, n_src_trial, trial_num, 'gp', task_id, seed)
                 with open(os.path.join(exp_dir, mth_file), 'wb') as f:
                     data = np.array(result)
                     pickle.dump(data, f)
